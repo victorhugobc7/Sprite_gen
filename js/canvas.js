@@ -20,7 +20,13 @@ export class CanvasEngine {
         
         // Interaction state
         this.isDragging = false;
+        this.isResizing = false;
+        this.resizeHandle = null; // 'tl', 'tr', 'bl', 'br' for corners
         this.dragOffset = { x: 0, y: 0 };
+        this.resizeStart = { x: 0, y: 0, scale: 100 };
+        
+        // Handle size for hit detection
+        this.handleSize = 20;
         
         // Animation state
         this.spriteAnimations = new Map();
@@ -160,6 +166,23 @@ export class CanvasEngine {
     onMouseDown(e) {
         const pos = this.getCanvasCoordinates(e);
         
+        // First check if clicking on resize handles of selected sprite
+        if (this.selectedSprite) {
+            const handle = this.getResizeHandleAt(pos);
+            if (handle) {
+                this.isResizing = true;
+                this.resizeHandle = handle;
+                this.resizeStart = {
+                    x: pos.x,
+                    y: pos.y,
+                    scale: this.selectedSprite.scale,
+                    spriteX: this.selectedSprite.x,
+                    spriteY: this.selectedSprite.y
+                };
+                return;
+            }
+        }
+        
         // Check if clicking on a sprite (in reverse order for top-most first)
         for (let i = this.sprites.length - 1; i >= 0; i--) {
             const sprite = this.sprites[i];
@@ -181,21 +204,110 @@ export class CanvasEngine {
     }
 
     /**
+     * Get resize handle at position
+     * @returns {string|null} Handle ID ('tl', 'tr', 'bl', 'br') or null
+     */
+    getResizeHandleAt(pos) {
+        if (!this.selectedSprite) return null;
+        
+        const bounds = this.getSpriteBounds(this.selectedSprite);
+        const hs = this.handleSize;
+        
+        const handles = {
+            tl: { x: bounds.x, y: bounds.y },
+            tr: { x: bounds.x + bounds.width, y: bounds.y },
+            bl: { x: bounds.x, y: bounds.y + bounds.height },
+            br: { x: bounds.x + bounds.width, y: bounds.y + bounds.height }
+        };
+        
+        for (const [id, handle] of Object.entries(handles)) {
+            if (pos.x >= handle.x - hs/2 && pos.x <= handle.x + hs/2 &&
+                pos.y >= handle.y - hs/2 && pos.y <= handle.y + hs/2) {
+                return id;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
      * Handle mouse move event
      */
     onMouseMove(e) {
-        if (!this.isDragging || !this.selectedSprite) return;
-        
         const pos = this.getCanvasCoordinates(e);
-        this.selectedSprite.x = pos.x - this.dragOffset.x;
-        this.selectedSprite.y = pos.y - this.dragOffset.y;
         
-        this.render();
+        // Update cursor based on what's under it
+        this.updateCursor(pos);
         
-        // Dispatch event for property panel update
-        window.dispatchEvent(new CustomEvent('spriteUpdated', { 
-            detail: this.selectedSprite 
-        }));
+        if (this.isResizing && this.selectedSprite) {
+            // Calculate scale change based on drag distance
+            const dx = pos.x - this.resizeStart.x;
+            const dy = pos.y - this.resizeStart.y;
+            
+            // Use diagonal distance for scale
+            let delta = 0;
+            switch (this.resizeHandle) {
+                case 'br': delta = (dx + dy) / 2; break;
+                case 'bl': delta = (-dx + dy) / 2; break;
+                case 'tr': delta = (dx - dy) / 2; break;
+                case 'tl': delta = (-dx - dy) / 2; break;
+            }
+            
+            // Scale factor: 1 pixel = 0.5% scale change
+            const newScale = Math.max(10, Math.min(300, this.resizeStart.scale + delta * 0.5));
+            this.selectedSprite.scale = Math.round(newScale);
+            
+            this.render();
+            
+            window.dispatchEvent(new CustomEvent('spriteUpdated', { 
+                detail: this.selectedSprite 
+            }));
+            return;
+        }
+        
+        if (this.isDragging && this.selectedSprite) {
+            this.selectedSprite.x = pos.x - this.dragOffset.x;
+            this.selectedSprite.y = pos.y - this.dragOffset.y;
+            
+            this.render();
+            
+            window.dispatchEvent(new CustomEvent('spriteUpdated', { 
+                detail: this.selectedSprite 
+            }));
+        }
+    }
+
+    /**
+     * Update cursor based on position
+     */
+    updateCursor(pos) {
+        if (!this.selectedSprite) {
+            this.canvas.style.cursor = 'default';
+            return;
+        }
+        
+        const handle = this.getResizeHandleAt(pos);
+        if (handle) {
+            switch (handle) {
+                case 'tl':
+                case 'br':
+                    this.canvas.style.cursor = 'nwse-resize';
+                    break;
+                case 'tr':
+                case 'bl':
+                    this.canvas.style.cursor = 'nesw-resize';
+                    break;
+            }
+            return;
+        }
+        
+        // Check if over sprite
+        const bounds = this.getSpriteBounds(this.selectedSprite);
+        if (pointInRect(pos.x, pos.y, bounds.x, bounds.y, bounds.width, bounds.height)) {
+            this.canvas.style.cursor = 'move';
+        } else {
+            this.canvas.style.cursor = 'default';
+        }
     }
 
     /**
@@ -203,6 +315,8 @@ export class CanvasEngine {
      */
     onMouseUp(e) {
         this.isDragging = false;
+        this.isResizing = false;
+        this.resizeHandle = null;
     }
 
     /**
@@ -385,9 +499,8 @@ export class CanvasEngine {
         this.ctx.setLineDash([10, 5]);
         this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
         
-        // Draw corner handles
-        const handleSize = 12;
-        this.ctx.fillStyle = '#e94560';
+        // Draw corner handles (larger for easier grabbing)
+        const handleSize = this.handleSize;
         this.ctx.setLineDash([]);
         
         const corners = [
@@ -398,7 +511,17 @@ export class CanvasEngine {
         ];
         
         for (const corner of corners) {
+            // White fill with colored border for visibility
+            this.ctx.fillStyle = '#ffffff';
             this.ctx.fillRect(
+                corner.x - handleSize / 2,
+                corner.y - handleSize / 2,
+                handleSize,
+                handleSize
+            );
+            this.ctx.strokeStyle = '#e94560';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(
                 corner.x - handleSize / 2,
                 corner.y - handleSize / 2,
                 handleSize,
