@@ -444,8 +444,8 @@ export class CanvasEngine {
         // Draw character name with box color
         if (dialogue.character) {
             this.ctx.fillStyle = boxColor;
-            this.ctx.font = 'bold 32px Calamity, "Segoe UI", sans-serif';
-            this.ctx.fillText(dialogue.character, boxX + padding, boxY + padding + 30);
+            this.ctx.font = 'bold 38px Calamity, "Segoe UI", sans-serif';
+            this.ctx.fillText(dialogue.character, boxX + padding, boxY + padding + 32);
         }
         
         // Draw dialogue text (use displayedText for typewriter effect, fallback to clean text)
@@ -455,7 +455,7 @@ export class CanvasEngine {
         
         if (textToShow) {
             this.ctx.fillStyle = '#ffffff';
-            let fontSize = 28;
+            let fontSize = 36;
             let fontStyle = '';
             
             // Apply text style
@@ -465,11 +465,11 @@ export class CanvasEngine {
                     this.ctx.fillStyle = '#a0a0a0';
                     break;
                 case 'shout':
-                    fontSize = 34;
+                    fontSize = 44;
                     fontStyle = 'bold ';
                     break;
                 case 'whisper':
-                    fontSize = 24;
+                    fontSize = 30;
                     this.ctx.fillStyle = '#808080';
                     break;
             }
