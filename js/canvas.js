@@ -10,7 +10,7 @@ export class CanvasEngine {
         this.ctx = this.canvas.getContext('2d');
         this.width = 1920;
         this.height = 1080;
-        this.zoom = 0.5;
+        this.zoom = 0.9;
         
         // Current scene state
         this.background = null;
@@ -611,27 +611,39 @@ export class CanvasEngine {
     }
 
     /**
-     * Word wrap text drawing
+     * Word wrap text drawing with newline support
      */
     wrapText(text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
+        // Split by newlines first
+        const paragraphs = text.split('\n');
         let currentY = y;
         
-        for (const word of words) {
-            const testLine = line + word + ' ';
-            const metrics = this.ctx.measureText(testLine);
-            
-            if (metrics.width > maxWidth && line !== '') {
-                this.ctx.fillText(line.trim(), x, currentY);
-                line = word + ' ';
+        for (const paragraph of paragraphs) {
+            if (paragraph.trim() === '') {
+                // Empty line - just add line height
                 currentY += lineHeight;
-            } else {
-                line = testLine;
+                continue;
             }
+            
+            const words = paragraph.split(' ');
+            let line = '';
+            
+            for (const word of words) {
+                const testLine = line + word + ' ';
+                const metrics = this.ctx.measureText(testLine);
+                
+                if (metrics.width > maxWidth && line !== '') {
+                    this.ctx.fillText(line.trim(), x, currentY);
+                    line = word + ' ';
+                    currentY += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            
+            this.ctx.fillText(line.trim(), x, currentY);
+            currentY += lineHeight;
         }
-        
-        this.ctx.fillText(line.trim(), x, currentY);
     }
 
     /**
