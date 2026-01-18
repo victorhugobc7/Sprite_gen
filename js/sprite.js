@@ -337,7 +337,8 @@ export class SpriteManager {
     }
 
     /**
-     * Extract the dominant color from an image (avoiding dark colors)
+     * Extract the dominant saturated color from an image
+     * Prioritizes the most frequently occurring saturated color
      * @param {HTMLImageElement} image - Image to analyze
      * @returns {Object} RGB color object with hex string
      */
@@ -354,7 +355,7 @@ export class SpriteManager {
         const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize);
         const data = imageData.data;
         
-        // Color buckets for quantization
+        // Color buckets for quantization - weighted by saturation
         const colorCounts = new Map();
         
         for (let i = 0; i < data.length; i += 4) {
@@ -363,24 +364,38 @@ export class SpriteManager {
             const b = data[i + 2];
             const a = data[i + 3];
             
-            // Skip transparent and near-white/near-black pixels
+            // Skip transparent pixels
             if (a < 128) continue;
             
-            const brightness = (r + g + b) / 3;
-            if (brightness < 60 || brightness > 240) continue;
+            // Calculate saturation (0-1)
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const lightness = (max + min) / 2 / 255;
+            const saturation = max === min ? 0 : 
+                lightness > 0.5 ? (max - min) / (510 - max - min) : (max - min) / (max + min);
             
-            // Quantize to reduce color variations (bucket by 32)
-            const qr = Math.floor(r / 32) * 32;
-            const qg = Math.floor(g / 32) * 32;
-            const qb = Math.floor(b / 32) * 32;
+            // Skip low saturation colors (grays, whites, blacks)
+            // Require at least 25% saturation to be considered
+            if (saturation < 0.25) continue;
+            
+            // Also skip very dark or very bright colors
+            const brightness = (r + g + b) / 3;
+            if (brightness < 30 || brightness > 245) continue;
+            
+            // Quantize to reduce color variations (bucket by 24 for finer granularity)
+            const qr = Math.floor(r / 24) * 24;
+            const qg = Math.floor(g / 24) * 24;
+            const qb = Math.floor(b / 24) * 24;
             
             const key = `${qr},${qg},${qb}`;
-            colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+            // Weight count by saturation to prefer more saturated colors
+            const weight = 1 + saturation;
+            colorCounts.set(key, (colorCounts.get(key) || 0) + weight);
         }
         
-        // Find most common color
+        // Find most common saturated color
         let maxCount = 0;
-        let dominantKey = '128,128,128';
+        let dominantKey = null;
         
         for (const [key, count] of colorCounts) {
             if (count > maxCount) {
@@ -389,18 +404,23 @@ export class SpriteManager {
             }
         }
         
+        // Fallback to a default if no saturated colors found
+        if (!dominantKey) {
+            return { r: 233, g: 69, b: 96, hex: '#e94560' };
+        }
+        
         const [r, g, b] = dominantKey.split(',').map(Number);
         
-        // Ensure the color is not too dark - boost if needed
-        const brightness = (r + g + b) / 3;
-        let finalR = r, finalG = g, finalB = b;
+        // Boost saturation slightly for better visibility in UI
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const mid = (max + min) / 2;
         
-        if (brightness < 100) {
-            const boost = 1.5;
-            finalR = Math.min(255, Math.floor(r * boost + 40));
-            finalG = Math.min(255, Math.floor(g * boost + 40));
-            finalB = Math.min(255, Math.floor(b * boost + 40));
-        }
+        // Push colors slightly away from gray
+        const boostFactor = 1.15;
+        let finalR = Math.min(255, Math.max(0, Math.round(mid + (r - mid) * boostFactor)));
+        let finalG = Math.min(255, Math.max(0, Math.round(mid + (g - mid) * boostFactor)));
+        let finalB = Math.min(255, Math.max(0, Math.round(mid + (b - mid) * boostFactor)));
         
         const hex = '#' + [finalR, finalG, finalB].map(x => x.toString(16).padStart(2, '0')).join('');
         
