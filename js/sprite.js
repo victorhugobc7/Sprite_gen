@@ -73,7 +73,8 @@ export class SpriteManager {
             id: generateId(),
             name: characterName,
             variants: [spriteId],
-            activeVariant: 0
+            activeVariant: 0,
+            boxColor: '#e94560' // Default accent color for dialogue box
         };
         
         sprite.characterId = character.id;

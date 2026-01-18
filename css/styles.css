@@ -202,6 +202,12 @@ body {
     margin-bottom: 0.25rem;
 }
 
+.property-group label small {
+    color: var(--text-secondary);
+    opacity: 0.7;
+    font-weight: normal;
+}
+
 .property-group input[type="text"],
 .property-group input[type="number"],
 .property-group textarea,

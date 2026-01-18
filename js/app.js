@@ -207,7 +207,8 @@ class SpriteGenApp {
             id: this.spriteManager.generateCharacterId(),
             name: name.trim(),
             variants: [],
-            activeVariant: 0
+            activeVariant: 0,
+            boxColor: '#e94560'
         };
         
         this.spriteManager.characters.set(character.id, character);
@@ -478,6 +479,14 @@ class SpriteGenApp {
         });
 
         document.getElementById('dialogue-color').addEventListener('input', (e) => {
+            // Update color on the character, not just the dialogue instance
+            const sprite = this.canvas.selectedSprite;
+            if (sprite && sprite.characterId) {
+                const character = this.spriteManager.getCharacter(sprite.characterId);
+                if (character) {
+                    character.boxColor = e.target.value;
+                }
+            }
             const dialogue = this.dialogueSystem.setBoxColor(e.target.value);
             this.canvas.setDialogue(dialogue);
             this.saveCurrentSceneState();
@@ -507,6 +516,13 @@ class SpriteGenApp {
         
         if (sprite && sprite.dominantColor) {
             const color = sprite.dominantColor.hex;
+            // Also update character's box color
+            if (sprite.characterId) {
+                const character = this.spriteManager.getCharacter(sprite.characterId);
+                if (character) {
+                    character.boxColor = color;
+                }
+            }
             document.getElementById('dialogue-color').value = color;
             const dialogue = this.dialogueSystem.setBoxColor(color);
             this.canvas.setDialogue(dialogue);
@@ -724,12 +740,26 @@ class SpriteGenApp {
             // Update variant selector
             this.updateVariantSelector(sprite);
             
-            // Auto-set dialogue color from sprite
-            if (sprite.dominantColor) {
-                document.getElementById('dialogue-color').value = sprite.dominantColor.hex;
-                const dialogue = this.dialogueSystem.setBoxColor(sprite.dominantColor.hex);
-                this.canvas.setDialogue(dialogue);
+            // Load character's box color (or auto-detect from sprite)
+            let boxColor = '#e94560';
+            if (sprite.characterId) {
+                const character = this.spriteManager.getCharacter(sprite.characterId);
+                if (character && character.boxColor) {
+                    boxColor = character.boxColor;
+                } else if (sprite.dominantColor) {
+                    boxColor = sprite.dominantColor.hex;
+                    // Set it on the character
+                    if (character) {
+                        character.boxColor = boxColor;
+                    }
+                }
+            } else if (sprite.dominantColor) {
+                boxColor = sprite.dominantColor.hex;
             }
+            
+            document.getElementById('dialogue-color').value = boxColor;
+            const dialogue = this.dialogueSystem.setBoxColor(boxColor);
+            this.canvas.setDialogue(dialogue);
         } else {
             panel.style.display = 'none';
         }
@@ -784,9 +814,13 @@ class SpriteGenApp {
 
     /**
      * Load scene data to canvas
+     * @param {Object} scene - Scene data
+     * @param {boolean} triggerAnimations - Whether to trigger sprite animations
+     * @param {boolean} startTyping - Whether to start typing animation
+     * @returns {Promise} Resolves when loaded, with typing duration estimate
      */
-    async loadSceneToCanvas(scene, triggerAnimations = false) {
-        if (!scene) return;
+    async loadSceneToCanvas(scene, triggerAnimations = false, startTyping = false) {
+        if (!scene) return { typingDuration: 0 };
 
         // Store previous sprites for comparison
         const previousSprites = [...this.canvas.sprites];
@@ -795,6 +829,7 @@ class SpriteGenApp {
         this.canvas.sprites = [];
         this.canvas.selectedSprite = null;
         this.canvas.background = null;
+        this.dialogueSystem.stopTyping();
 
         // Load background if set
         if (scene.background) {
@@ -829,16 +864,52 @@ class SpriteGenApp {
         }
 
         // Load dialogue
-        this.dialogueSystem.setDialogue(scene.dialogue || {
+        const dialogueData = scene.dialogue || {
             character: '',
             text: '',
             style: 'default',
             visible: false
-        });
-        this.canvas.setDialogue(this.dialogueSystem.getDialogue());
-        this.updateDialogueUI(scene.dialogue);
-
+        };
+        
+        this.dialogueSystem.setDialogue(dialogueData);
+        const dialogue = this.dialogueSystem.getDialogue();
+        
+        // Calculate typing duration
+        let typingDuration = 0;
+        
+        if (startTyping && dialogue.visible && dialogue.text) {
+            // Parse to calculate total typing duration
+            const segments = this.dialogueSystem.parseTextWithPauses(dialogue.text);
+            for (const segment of segments) {
+                if (segment.type === 'text') {
+                    typingDuration += segment.content.length * dialogue.typingSpeed;
+                } else if (segment.type === 'pause') {
+                    typingDuration += segment.content;
+                }
+            }
+            
+            // Start typing animation
+            dialogue.displayedText = '';
+            this.canvas.setDialogue(dialogue);
+            
+            this.dialogueSystem.startTyping(
+                (updatedDialogue) => {
+                    this.canvas.setDialogue(updatedDialogue);
+                },
+                () => {
+                    // Typing complete
+                }
+            );
+        } else {
+            // Show full text immediately
+            dialogue.displayedText = this.dialogueSystem.getCleanText(dialogue.text);
+            this.canvas.setDialogue(dialogue);
+        }
+        
+        this.updateDialogueUI(dialogueData);
         this.canvas.render();
+        
+        return { typingDuration };
     }
 
     /**
@@ -860,6 +931,11 @@ class SpriteGenApp {
         document.getElementById('dialogue-style').value = dialogue.style || 'default';
         document.getElementById('dialogue-color').value = dialogue.boxColor || '#e94560';
         document.getElementById('dialogue-visible').checked = dialogue.visible !== false;
+        
+        // Update typing speed
+        const typingSpeed = dialogue.typingSpeed || 50;
+        document.getElementById('dialogue-typing-speed').value = typingSpeed;
+        document.getElementById('dialogue-typing-speed-value').textContent = `${typingSpeed} ms`;
     }
 
     /**
@@ -1040,7 +1116,8 @@ class SpriteGenApp {
                 id: c.id,
                 name: c.name,
                 variants: c.variants,
-                activeVariant: c.activeVariant
+                activeVariant: c.activeVariant,
+                boxColor: c.boxColor || '#e94560'
             })),
             assets: {
                 sprites: this.spriteManager.getAllSprites().map(s => ({
@@ -1095,7 +1172,8 @@ class SpriteGenApp {
                         id: charData.id,
                         name: charData.name,
                         variants: charData.variants || [],
-                        activeVariant: charData.activeVariant || 0
+                        activeVariant: charData.activeVariant || 0,
+                        boxColor: charData.boxColor || '#e94560'
                     };
                     this.spriteManager.characters.set(character.id, character);
                     this.addCharacterToList(character);
@@ -1225,11 +1303,12 @@ class SpriteGenApp {
         const scene = scenes[sceneIndex];
         this.timeline.setCurrentScene(sceneIndex);
         
-        // Load scene with animations
-        await this.loadSceneToCanvas(scene, true);
+        // Load scene with animations and typing
+        const { typingDuration } = await this.loadSceneToCanvas(scene, true, true);
         
-        // Wait for scene duration
-        await new Promise(resolve => setTimeout(resolve, scene.duration));
+        // Wait for typing to complete plus scene duration
+        const totalDuration = Math.max(scene.duration, typingDuration + 500);
+        await new Promise(resolve => setTimeout(resolve, totalDuration));
         
         // Continue to next scene
         await this.recordSceneSequence(scenes, sceneIndex + 1);
@@ -1330,17 +1409,22 @@ class SpriteGenApp {
         if (!this.previewPlaying) return;
         
         const scene = this.timeline.getCurrentScene();
-        this.loadSceneToCanvas(scene, true).then(() => {
+        this.loadSceneToCanvas(scene, true, true).then(({ typingDuration }) => {
             this.updatePreview();
+            
+            // Wait for typing to finish plus scene duration
+            const totalDuration = Math.max(scene.duration, typingDuration + 500);
             
             if (this.timeline.getCurrentIndex() < this.timeline.getSceneCount() - 1) {
                 this.previewInterval = setTimeout(() => {
                     this.timeline.nextScene();
                     this.playNextPreviewScene();
-                }, scene.duration);
+                }, totalDuration);
             } else {
                 // End of sequence
-                this.stopPreviewPlayback();
+                this.previewInterval = setTimeout(() => {
+                    this.stopPreviewPlayback();
+                }, totalDuration);
             }
         });
     }
