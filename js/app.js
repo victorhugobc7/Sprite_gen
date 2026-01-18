@@ -139,11 +139,24 @@ class SpriteGenApp {
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
 
+        // Options controls
+        this.setupOptionsListeners();
+
         // Scene transition controls
         this.setupTransitionListeners();
 
         // Audio controls
         this.setupAudioListeners();
+    }
+
+    /**
+     * Set up options control listeners
+     */
+    setupOptionsListeners() {
+        document.getElementById('canvas-bg-color').addEventListener('input', (e) => {
+            this.canvas.canvasBackgroundColor = e.target.value;
+            this.canvas.render();
+        });
     }
 
     /**
@@ -1356,10 +1369,8 @@ class SpriteGenApp {
         
         // Reset to first dialogue line
         this.selectedDialogueIndex = 0;
-        const dialogueData = dialogues[0];
         
         this.dialogueSystem.setDialogueLines(dialogues);
-        this.dialogueSystem.setDialogue(dialogueData);
         const dialogue = this.dialogueSystem.getDialogue();
         
         // Calculate typing duration for all dialogue lines
@@ -1655,6 +1666,9 @@ class SpriteGenApp {
                 sceneDuration: this.canvas.sceneTransitionDuration,
                 bgStyle: this.canvas.bgTransitionStyle,
                 bgDuration: this.canvas.bgTransitionDuration
+            },
+            options: {
+                canvasBackgroundColor: this.canvas.canvasBackgroundColor
             }
         };
 
@@ -1779,6 +1793,14 @@ class SpriteGenApp {
                 document.getElementById('bg-transition-style').value = projectData.transitions.bgStyle;
                 document.getElementById('bg-transition-duration').value = projectData.transitions.bgDuration;
                 document.getElementById('bg-transition-duration-value').textContent = `${projectData.transitions.bgDuration} ms`;
+            }
+
+            // Load options (v1.2+)
+            if (projectData.options) {
+                if (projectData.options.canvasBackgroundColor) {
+                    this.canvas.canvasBackgroundColor = projectData.options.canvasBackgroundColor;
+                    document.getElementById('canvas-bg-color').value = projectData.options.canvasBackgroundColor;
+                }
             }
 
         } catch (error) {

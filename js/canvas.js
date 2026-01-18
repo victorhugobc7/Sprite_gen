@@ -12,6 +12,9 @@ export class CanvasEngine {
         this.height = 1080;
         this.zoom = 0.9;
         
+        // Canvas background color (when no image set)
+        this.canvasBackgroundColor = '#ffffff';
+        
         // Current scene state
         this.background = null;
         this.sprites = [];
@@ -719,6 +722,10 @@ export class CanvasEngine {
             }
         } else if (this.background) {
             this.ctx.drawImage(this.background, 0, 0, this.width, this.height);
+        } else {
+            // Draw canvas background color
+            this.ctx.fillStyle = this.canvasBackgroundColor;
+            this.ctx.fillRect(0, 0, this.width, this.height);
         }
     }
 
@@ -917,7 +924,7 @@ export class CanvasEngine {
         if (textToShow) {
             this.ctx.fillStyle = '#ffffff';
             let fontSize = 36;
-            let fontStyle = '';
+            let fontStyle = 'bold ';
             
             // Apply text style
             switch (dialogue.style) {
@@ -931,6 +938,7 @@ export class CanvasEngine {
                     break;
                 case 'whisper':
                     fontSize = 30;
+                    fontStyle = '';
                     this.ctx.fillStyle = '#808080';
                     break;
             }

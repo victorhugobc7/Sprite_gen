@@ -187,9 +187,13 @@ export class DialogueSystem {
      * @param {Object} dialogue - Dialogue data
      */
     setDialogue(dialogue) {
+        // Reset typing state when setting new dialogue
         this.currentDialogue = {
             ...this.currentDialogue,
-            ...dialogue
+            ...dialogue,
+            displayedText: '', // Always reset displayed text
+            isTyping: false,
+            typingComplete: false
         };
         return this.currentDialogue;
     }
