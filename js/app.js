@@ -6,6 +6,7 @@ import { CanvasEngine } from './canvas.js';
 import { SpriteManager } from './sprite.js';
 import { DialogueSystem } from './dialogue.js';
 import { Timeline } from './timeline.js';
+import { AudioManager } from './audio.js';
 import { downloadFile, downloadCanvas, debounce } from './utils.js';
 
 class SpriteGenApp {
@@ -14,6 +15,7 @@ class SpriteGenApp {
         this.spriteManager = new SpriteManager();
         this.dialogueSystem = new DialogueSystem();
         this.timeline = new Timeline();
+        this.audioManager = new AudioManager();
         
         this.previewMode = false;
         this.previewInterval = null;
@@ -133,6 +135,100 @@ class SpriteGenApp {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+        // Scene transition controls
+        this.setupTransitionListeners();
+
+        // Audio controls
+        this.setupAudioListeners();
+    }
+
+    /**
+     * Set up transition control listeners
+     */
+    setupTransitionListeners() {
+        document.getElementById('scene-transition-style').addEventListener('change', (e) => {
+            this.canvas.setSceneTransitionStyle(e.target.value);
+        });
+
+        document.getElementById('scene-transition-duration').addEventListener('input', (e) => {
+            const duration = parseInt(e.target.value);
+            document.getElementById('scene-transition-duration-value').textContent = `${duration} ms`;
+            this.canvas.setSceneTransitionDuration(duration);
+        });
+
+        document.getElementById('bg-transition-style').addEventListener('change', (e) => {
+            this.canvas.setBgTransitionStyle(e.target.value);
+        });
+
+        document.getElementById('bg-transition-duration').addEventListener('input', (e) => {
+            const duration = parseInt(e.target.value);
+            document.getElementById('bg-transition-duration-value').textContent = `${duration} ms`;
+            this.canvas.setBgTransitionDuration(duration);
+        });
+    }
+
+    /**
+     * Set up audio control listeners
+     */
+    setupAudioListeners() {
+        // Expression SFX upload
+        document.getElementById('btn-upload-sfx-expression').addEventListener('click', () => {
+            document.getElementById('sfx-expression-input').click();
+        });
+
+        document.getElementById('sfx-expression-input').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const result = await this.audioManager.loadExpressionSfx(e.target.files[0]);
+                document.getElementById('sfx-expression-name').textContent = result.name;
+                document.getElementById('sfx-expression-name').classList.add('has-file');
+                e.target.value = '';
+            }
+        });
+
+        document.getElementById('btn-clear-sfx-expression').addEventListener('click', () => {
+            this.audioManager.clearExpressionSfx();
+            document.getElementById('sfx-expression-name').textContent = 'No file';
+            document.getElementById('sfx-expression-name').classList.remove('has-file');
+        });
+
+        document.getElementById('sfx-expression-volume').addEventListener('input', (e) => {
+            const volume = parseInt(e.target.value);
+            document.getElementById('sfx-expression-volume-value').textContent = `${volume}%`;
+            this.audioManager.setExpressionSfxVolume(volume / 100);
+        });
+
+        // BGM upload
+        document.getElementById('btn-upload-bgm').addEventListener('click', () => {
+            document.getElementById('bgm-input').click();
+        });
+
+        document.getElementById('bgm-input').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const result = await this.audioManager.loadBgm(e.target.files[0]);
+                document.getElementById('bgm-name').textContent = result.name;
+                document.getElementById('bgm-name').classList.add('has-file');
+                e.target.value = '';
+            }
+        });
+
+        document.getElementById('btn-clear-bgm').addEventListener('click', () => {
+            this.audioManager.clearBgm();
+            document.getElementById('bgm-name').textContent = 'No file';
+            document.getElementById('bgm-name').classList.remove('has-file');
+            document.getElementById('btn-toggle-bgm').textContent = '▶ Play BGM';
+        });
+
+        document.getElementById('bgm-volume').addEventListener('input', (e) => {
+            const volume = parseInt(e.target.value);
+            document.getElementById('bgm-volume-value').textContent = `${volume}%`;
+            this.audioManager.setBgmVolume(volume / 100);
+        });
+
+        document.getElementById('btn-toggle-bgm').addEventListener('click', () => {
+            const playing = this.audioManager.toggleBgm();
+            document.getElementById('btn-toggle-bgm').textContent = playing ? '⏸ Pause BGM' : '▶ Play BGM';
+        });
     }
 
     /**
@@ -497,6 +593,9 @@ class SpriteGenApp {
             
             // Trigger transition animation
             this.canvas.triggerSpriteAnimation(newSprite.id);
+            
+            // Play expression change SFX
+            this.audioManager.playExpressionSfx();
         }
         
         // Update character's active variant
@@ -1136,6 +1235,12 @@ class SpriteGenApp {
 
         // Store previous sprites for comparison
         const previousSprites = [...this.canvas.sprites];
+        const previousBackground = this.canvas.background;
+
+        // Capture snapshot for scene transition if transitioning between scenes
+        if (triggerAnimations && this.canvas.sceneTransitionStyle !== 'none') {
+            this.canvas.captureSceneSnapshot();
+        }
 
         // Clear current state
         this.canvas.sprites = [];
@@ -1144,12 +1249,22 @@ class SpriteGenApp {
         this.dialogueSystem.stopTyping();
 
         // Load background if set
+        const bgChanged = scene.background !== (previousBackground ? previousBackground.src : null);
         if (scene.background) {
             const img = new Image();
-            img.onload = () => {
-                this.canvas.setBackground(img);
-            };
-            img.src = scene.background;
+            await new Promise((resolve) => {
+                img.onload = () => {
+                    this.canvas.setBackground(img);
+                    resolve();
+                };
+                img.onerror = resolve;
+                img.src = scene.background;
+            });
+            
+            // Trigger background transition if bg changed and transitions are enabled
+            if (triggerAnimations && bgChanged && this.canvas.bgTransitionStyle !== 'none' && previousBackground) {
+                this.canvas.startBackgroundTransition(previousBackground);
+            }
         }
 
         // Load sprites
@@ -1278,6 +1393,12 @@ class SpriteGenApp {
         }
         
         this.updateDialogueUI(scene);
+        
+        // Start scene transition if enabled
+        if (triggerAnimations && this.canvas.sceneTransitionStyle !== 'none' && previousSprites.length > 0) {
+            this.canvas.startSceneTransition();
+        }
+        
         this.canvas.render();
         
         return { typingDuration };
@@ -1485,7 +1606,7 @@ class SpriteGenApp {
         this.saveCurrentSceneState();
         
         const projectData = {
-            version: '1.1.0',
+            version: '1.2.0',
             timeline: this.timeline.export(),
             characters: this.spriteManager.getAllCharacters().map(c => ({
                 id: c.id,
@@ -1508,6 +1629,13 @@ class SpriteGenApp {
                     name: b.name,
                     imageSrc: b.image.src
                 }))
+            },
+            audio: this.audioManager.getState(),
+            transitions: {
+                sceneStyle: this.canvas.sceneTransitionStyle,
+                sceneDuration: this.canvas.sceneTransitionDuration,
+                bgStyle: this.canvas.bgTransitionStyle,
+                bgDuration: this.canvas.bgTransitionDuration
             }
         };
 
@@ -1598,6 +1726,41 @@ class SpriteGenApp {
             this.timeline.import(projectData.timeline);
             this.loadInitialScene();
             this.updateTimelineUI();
+
+            // Load audio settings (v1.2+)
+            if (projectData.audio) {
+                this.audioManager.loadState(projectData.audio);
+                
+                // Update UI for audio
+                if (projectData.audio.expressionSfx) {
+                    document.getElementById('sfx-expression-name').textContent = projectData.audio.expressionSfx.name;
+                    document.getElementById('sfx-expression-name').classList.add('has-file');
+                }
+                if (projectData.audio.bgm) {
+                    document.getElementById('bgm-name').textContent = projectData.audio.bgm.name;
+                    document.getElementById('bgm-name').classList.add('has-file');
+                }
+                document.getElementById('sfx-expression-volume').value = projectData.audio.expressionSfxVolume * 100;
+                document.getElementById('sfx-expression-volume-value').textContent = `${Math.round(projectData.audio.expressionSfxVolume * 100)}%`;
+                document.getElementById('bgm-volume').value = projectData.audio.bgmVolume * 100;
+                document.getElementById('bgm-volume-value').textContent = `${Math.round(projectData.audio.bgmVolume * 100)}%`;
+            }
+
+            // Load transition settings (v1.2+)
+            if (projectData.transitions) {
+                this.canvas.setSceneTransitionStyle(projectData.transitions.sceneStyle);
+                this.canvas.setSceneTransitionDuration(projectData.transitions.sceneDuration);
+                this.canvas.setBgTransitionStyle(projectData.transitions.bgStyle);
+                this.canvas.setBgTransitionDuration(projectData.transitions.bgDuration);
+                
+                // Update UI for transitions
+                document.getElementById('scene-transition-style').value = projectData.transitions.sceneStyle;
+                document.getElementById('scene-transition-duration').value = projectData.transitions.sceneDuration;
+                document.getElementById('scene-transition-duration-value').textContent = `${projectData.transitions.sceneDuration} ms`;
+                document.getElementById('bg-transition-style').value = projectData.transitions.bgStyle;
+                document.getElementById('bg-transition-duration').value = projectData.transitions.bgDuration;
+                document.getElementById('bg-transition-duration-value').textContent = `${projectData.transitions.bgDuration} ms`;
+            }
 
         } catch (error) {
             console.error('Failed to load project:', error);

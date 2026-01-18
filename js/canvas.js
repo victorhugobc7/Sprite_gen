@@ -40,6 +40,22 @@ export class CanvasEngine {
         // Dialogue fade opacity (for transitions between lines)
         this.dialogueFadeOpacity = 1;
         
+        // Scene transition state
+        this.sceneTransitionStyle = 'fade';
+        this.sceneTransitionDuration = 0.5; // 500ms default
+        this.sceneTransitionProgress = 0;
+        this.isTransitioning = false;
+        this.transitionPhase = 'none'; // 'out', 'in', 'none'
+        this.transitionColor = '#000000';
+        this.previousSceneSnapshot = null;
+        
+        // Background transition state
+        this.bgTransitionStyle = 'fade';
+        this.bgTransitionDuration = 0.3;
+        this.bgTransitionProgress = 0;
+        this.isBgTransitioning = false;
+        this.previousBackground = null;
+        
         // Breathing animation state
         this.breathingPhase = 0;
         this.breathingSpeed = 0.8; // Cycles per second
@@ -80,6 +96,147 @@ export class CanvasEngine {
      */
     setPositionTransitionEasing(easing) {
         this.positionTransitionEasing = easing;
+    }
+
+    /**
+     * Set scene transition style
+     * @param {string} style - Transition style name
+     */
+    setSceneTransitionStyle(style) {
+        this.sceneTransitionStyle = style;
+    }
+
+    /**
+     * Set scene transition duration
+     * @param {number} durationMs - Duration in milliseconds
+     */
+    setSceneTransitionDuration(durationMs) {
+        this.sceneTransitionDuration = durationMs / 1000;
+    }
+
+    /**
+     * Set background transition style
+     * @param {string} style - Transition style name
+     */
+    setBgTransitionStyle(style) {
+        this.bgTransitionStyle = style;
+    }
+
+    /**
+     * Set background transition duration
+     * @param {number} durationMs - Duration in milliseconds
+     */
+    setBgTransitionDuration(durationMs) {
+        this.bgTransitionDuration = durationMs / 1000;
+    }
+
+    /**
+     * Capture current scene as snapshot for transitions
+     */
+    captureSceneSnapshot() {
+        // Create a copy of the current canvas
+        const snapshotCanvas = document.createElement('canvas');
+        snapshotCanvas.width = this.width;
+        snapshotCanvas.height = this.height;
+        const snapshotCtx = snapshotCanvas.getContext('2d');
+        snapshotCtx.drawImage(this.canvas, 0, 0);
+        this.previousSceneSnapshot = snapshotCanvas;
+    }
+
+    /**
+     * Start scene transition animation
+     * @param {Function} onMidpoint - Callback at transition midpoint (for scene switch)
+     * @param {Function} onComplete - Callback when transition completes
+     */
+    startSceneTransition(onMidpoint, onComplete) {
+        if (this.sceneTransitionStyle === 'none') {
+            if (onMidpoint) onMidpoint();
+            if (onComplete) onComplete();
+            return;
+        }
+
+        this.captureSceneSnapshot();
+        this.isTransitioning = true;
+        this.transitionPhase = 'out';
+        this.sceneTransitionProgress = 0;
+        
+        // Set transition color based on style
+        if (this.sceneTransitionStyle === 'fadeToBlack') {
+            this.transitionColor = '#000000';
+        } else if (this.sceneTransitionStyle === 'fadeToWhite') {
+            this.transitionColor = '#ffffff';
+        }
+
+        const startTime = performance.now();
+        const halfDuration = this.sceneTransitionDuration / 2;
+
+        const animate = () => {
+            const elapsed = (performance.now() - startTime) / 1000;
+            
+            if (this.transitionPhase === 'out') {
+                this.sceneTransitionProgress = Math.min(elapsed / halfDuration, 1);
+                
+                if (this.sceneTransitionProgress >= 1) {
+                    this.transitionPhase = 'in';
+                    if (onMidpoint) onMidpoint();
+                }
+            } else if (this.transitionPhase === 'in') {
+                const inElapsed = elapsed - halfDuration;
+                this.sceneTransitionProgress = 1 - Math.min(inElapsed / halfDuration, 1);
+                
+                if (this.sceneTransitionProgress <= 0) {
+                    this.isTransitioning = false;
+                    this.transitionPhase = 'none';
+                    this.sceneTransitionProgress = 0;
+                    this.previousSceneSnapshot = null;
+                    if (onComplete) onComplete();
+                    return;
+                }
+            }
+            
+            this.render();
+            requestAnimationFrame(animate);
+        };
+        
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * Start background transition
+     * @param {HTMLImageElement} newBackground - New background image
+     * @param {Function} onComplete - Callback when complete
+     */
+    startBackgroundTransition(newBackground, onComplete) {
+        if (this.bgTransitionStyle === 'none') {
+            this.background = newBackground;
+            if (onComplete) onComplete();
+            return;
+        }
+
+        this.previousBackground = this.background;
+        this.background = newBackground;
+        this.isBgTransitioning = true;
+        this.bgTransitionProgress = 0;
+
+        const startTime = performance.now();
+
+        const animate = () => {
+            const elapsed = (performance.now() - startTime) / 1000;
+            this.bgTransitionProgress = Math.min(elapsed / this.bgTransitionDuration, 1);
+            
+            if (this.bgTransitionProgress >= 1) {
+                this.isBgTransitioning = false;
+                this.bgTransitionProgress = 0;
+                this.previousBackground = null;
+                if (onComplete) onComplete();
+                return;
+            }
+            
+            this.render();
+            requestAnimationFrame(animate);
+        };
+        
+        requestAnimationFrame(animate);
     }
 
     /**
@@ -504,10 +661,8 @@ export class CanvasEngine {
     render() {
         this.clear();
         
-        // Draw background
-        if (this.background) {
-            this.ctx.drawImage(this.background, 0, 0, this.width, this.height);
-        }
+        // Draw background with transition support
+        this.drawBackgroundWithTransition();
         
         // Draw sprites
         for (const sprite of this.sprites) {
@@ -523,6 +678,108 @@ export class CanvasEngine {
         if (this.dialogue && this.dialogue.visible) {
             this.drawDialogue(this.dialogue);
         }
+        
+        // Draw scene transition overlay
+        if (this.isTransitioning) {
+            this.drawSceneTransition();
+        }
+    }
+
+    /**
+     * Draw background with transition support
+     */
+    drawBackgroundWithTransition() {
+        if (this.isBgTransitioning && this.previousBackground) {
+            const progress = applyEasing(this.bgTransitionProgress, 'easeInOut');
+            
+            if (this.bgTransitionStyle === 'fade') {
+                // Draw previous background
+                this.ctx.globalAlpha = 1 - progress;
+                this.ctx.drawImage(this.previousBackground, 0, 0, this.width, this.height);
+                
+                // Draw new background
+                if (this.background) {
+                    this.ctx.globalAlpha = progress;
+                    this.ctx.drawImage(this.background, 0, 0, this.width, this.height);
+                }
+                this.ctx.globalAlpha = 1;
+            } else if (this.bgTransitionStyle === 'fadeToBlack') {
+                if (progress < 0.5) {
+                    // Fade out old background
+                    this.ctx.globalAlpha = 1 - progress * 2;
+                    this.ctx.drawImage(this.previousBackground, 0, 0, this.width, this.height);
+                } else {
+                    // Fade in new background
+                    if (this.background) {
+                        this.ctx.globalAlpha = (progress - 0.5) * 2;
+                        this.ctx.drawImage(this.background, 0, 0, this.width, this.height);
+                    }
+                }
+                this.ctx.globalAlpha = 1;
+            }
+        } else if (this.background) {
+            this.ctx.drawImage(this.background, 0, 0, this.width, this.height);
+        }
+    }
+
+    /**
+     * Draw scene transition overlay
+     */
+    drawSceneTransition() {
+        const progress = applyEasing(this.sceneTransitionProgress, 'easeInOut');
+        
+        this.ctx.save();
+        
+        switch (this.sceneTransitionStyle) {
+            case 'fade':
+                // Simple crossfade - draw previous snapshot with fading alpha
+                if (this.transitionPhase === 'out' && this.previousSceneSnapshot) {
+                    this.ctx.globalAlpha = 1 - progress;
+                    // Clear and draw current scene first
+                    this.ctx.globalAlpha = progress;
+                }
+                break;
+                
+            case 'fadeToBlack':
+            case 'fadeToWhite':
+                // Fade through color
+                this.ctx.fillStyle = this.transitionColor;
+                this.ctx.globalAlpha = progress;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                break;
+                
+            case 'slideLeft':
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(this.width * (1 - progress), 0, this.width * progress, this.height);
+                break;
+                
+            case 'slideRight':
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.width * progress, this.height);
+                break;
+                
+            case 'slideUp':
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, this.height * (1 - progress), this.width, this.height * progress);
+                break;
+                
+            case 'slideDown':
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.width, this.height * progress);
+                break;
+                
+            case 'wipeLeft':
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(this.width * (1 - progress), 0, 4, this.height);
+                break;
+                
+            case 'wipeRight':
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(this.width * progress - 4, 0, 4, this.height);
+                break;
+        }
+        
+        this.ctx.restore();
     }
 
     /**

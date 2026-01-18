@@ -656,6 +656,35 @@ body {
     background-color: #ef4444 !important;
 }
 
+/* Audio upload controls */
+.audio-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.audio-filename {
+    flex: 1;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--bg-dark);
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+}
+
+.audio-filename.has-file {
+    color: var(--success);
+}
+
+.btn-small {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.7rem !important;
+    min-width: auto !important;
+}
+
 /* Utility classes */
 .hidden {
     display: none !important;
