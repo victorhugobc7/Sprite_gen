@@ -131,6 +131,28 @@
                         <input type="range" id="anim-transition-duration" min="30" max="300" value="70">
                         <span id="anim-transition-duration-value">70 ms</span>
                     </div>
+                    <div class="property-group">
+                        <label>Position Transition Speed</label>
+                        <input type="range" id="anim-position-duration" min="100" max="1500" value="300">
+                        <span id="anim-position-duration-value">300 ms</span>
+                    </div>
+                    <div class="property-group">
+                        <label>Position Easing Curve</label>
+                        <select id="anim-position-easing">
+                            <option value="linear">Linear</option>
+                            <option value="easeIn">Ease In</option>
+                            <option value="easeOut">Ease Out</option>
+                            <option value="easeInOut" selected>Ease In-Out</option>
+                            <option value="easeInCubic">Ease In Cubic</option>
+                            <option value="easeOutCubic">Ease Out Cubic</option>
+                            <option value="easeInOutCubic">Ease In-Out Cubic</option>
+                            <option value="easeInQuart">Ease In Quart</option>
+                            <option value="easeOutQuart">Ease Out Quart</option>
+                            <option value="easeInOutQuart">Ease In-Out Quart</option>
+                            <option value="easeOutBack">Ease Out Back (Overshoot)</option>
+                            <option value="easeOutElastic">Ease Out Elastic</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="panel-section">

@@ -86,6 +86,17 @@ class SpriteGenApp {
             this.canvas.setAnimationDuration(duration);
         });
 
+        // Position transition settings
+        document.getElementById('anim-position-duration').addEventListener('input', (e) => {
+            const duration = parseInt(e.target.value);
+            document.getElementById('anim-position-duration-value').textContent = `${duration} ms`;
+            this.canvas.setPositionTransitionDuration(duration);
+        });
+
+        document.getElementById('anim-position-easing').addEventListener('change', (e) => {
+            this.canvas.setPositionTransitionEasing(e.target.value);
+        });
+
         // Scene properties
         document.getElementById('scene-name').addEventListener('input', debounce((e) => {
             this.timeline.updateCurrentScene({ name: e.target.value });
@@ -844,6 +855,8 @@ class SpriteGenApp {
         for (const spriteData of scene.sprites) {
             const sprite = this.spriteManager.getSprite(spriteData.id);
             if (sprite) {
+                const prevSprite = previousSprites.find(s => s.id === spriteData.id);
+                
                 const sceneSprite = {
                     ...sprite,
                     x: spriteData.x,
@@ -851,15 +864,31 @@ class SpriteGenApp {
                     scale: spriteData.scale,
                     opacity: spriteData.opacity
                 };
-                this.canvas.sprites.push(sceneSprite);
                 
-                // Trigger animation if this is a scene change
-                if (triggerAnimations) {
-                    const prevSprite = previousSprites.find(s => s.id === sceneSprite.id);
-                    if (!prevSprite || prevSprite.x !== sceneSprite.x || prevSprite.y !== sceneSprite.y) {
+                // Trigger position animation if this is a scene change and position changed
+                if (triggerAnimations && prevSprite) {
+                    const positionChanged = prevSprite.x !== sceneSprite.x || prevSprite.y !== sceneSprite.y;
+                    
+                    if (positionChanged) {
+                        // Start sprite at previous position, animate to new position
+                        sceneSprite.x = prevSprite.x;
+                        sceneSprite.y = prevSprite.y;
+                        this.canvas.triggerPositionAnimation(
+                            sceneSprite.id,
+                            prevSprite.x,
+                            prevSprite.y,
+                            spriteData.x,
+                            spriteData.y
+                        );
+                        // Also trigger squish/stretch when arriving
                         this.canvas.triggerSpriteAnimation(sceneSprite.id);
                     }
+                } else if (triggerAnimations && !prevSprite) {
+                    // New sprite appearing - just trigger squish/stretch
+                    this.canvas.triggerSpriteAnimation(sceneSprite.id);
                 }
+                
+                this.canvas.sprites.push(sceneSprite);
             }
         }
 

@@ -2,7 +2,7 @@
  * SpriteGen - Canvas Rendering Engine
  */
 
-import { pointInRect } from './utils.js';
+import { pointInRect, applyEasing } from './utils.js';
 
 export class CanvasEngine {
     constructor(canvasId) {
@@ -28,9 +28,14 @@ export class CanvasEngine {
         // Handle size for hit detection
         this.handleSize = 20;
         
-        // Animation state
+        // Animation state for squish/stretch
         this.spriteAnimations = new Map();
         this.animationDuration = 0.07; // 70ms squish/stretch
+        
+        // Position transition animation state
+        this.positionAnimations = new Map();
+        this.positionTransitionDuration = 0.3; // 300ms default
+        this.positionTransitionEasing = 'easeInOut';
         
         // Breathing animation state
         this.breathingPhase = 0;
@@ -56,6 +61,40 @@ export class CanvasEngine {
      */
     setBreathingSpeed(hz) {
         this.breathingSpeed = hz;
+    }
+
+    /**
+     * Set position transition duration
+     * @param {number} durationMs - Duration in milliseconds
+     */
+    setPositionTransitionDuration(durationMs) {
+        this.positionTransitionDuration = durationMs / 1000;
+    }
+
+    /**
+     * Set position transition easing curve
+     * @param {string} easing - Easing function name
+     */
+    setPositionTransitionEasing(easing) {
+        this.positionTransitionEasing = easing;
+    }
+
+    /**
+     * Trigger position transition animation for a sprite
+     * @param {string} spriteId - ID of the sprite
+     * @param {number} fromX - Starting X position
+     * @param {number} fromY - Starting Y position
+     * @param {number} toX - Target X position
+     * @param {number} toY - Target Y position
+     */
+    triggerPositionAnimation(spriteId, fromX, fromY, toX, toY) {
+        this.positionAnimations.set(spriteId, {
+            startTime: performance.now(),
+            fromX,
+            fromY,
+            toX,
+            toY
+        });
     }
 
     /**
@@ -97,6 +136,7 @@ export class CanvasEngine {
     updateAnimations() {
         const now = performance.now();
         
+        // Update squish/stretch animations
         for (const [spriteId, anim] of this.spriteAnimations) {
             const elapsed = (now - anim.startTime) / 1000;
             const progress = Math.min(elapsed / this.animationDuration, 1);
@@ -119,6 +159,29 @@ export class CanvasEngine {
                     anim.scaleX = 1 + 0.03 * Math.sin(t * Math.PI);
                     anim.scaleY = 1 - 0.06 * Math.sin(t * Math.PI);
                 }
+            }
+        }
+        
+        // Update position transition animations
+        for (const [spriteId, anim] of this.positionAnimations) {
+            const elapsed = (now - anim.startTime) / 1000;
+            const rawProgress = Math.min(elapsed / this.positionTransitionDuration, 1);
+            const progress = applyEasing(rawProgress, this.positionTransitionEasing);
+            
+            // Find the sprite and update its position
+            const sprite = this.sprites.find(s => s.id === spriteId);
+            if (sprite) {
+                sprite.x = anim.fromX + (anim.toX - anim.fromX) * progress;
+                sprite.y = anim.fromY + (anim.toY - anim.fromY) * progress;
+            }
+            
+            if (rawProgress >= 1) {
+                // Animation complete - ensure final position
+                if (sprite) {
+                    sprite.x = anim.toX;
+                    sprite.y = anim.toY;
+                }
+                this.positionAnimations.delete(spriteId);
             }
         }
     }
