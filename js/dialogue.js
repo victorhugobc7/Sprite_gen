@@ -10,7 +10,7 @@ export class DialogueSystem {
             style: 'default',
             visible: true,
             boxColor: '#e94560', // Default accent color
-            typingSpeed: 50, // ms per character
+            typingSpeed: 150, // ms per character (default middle point)
             displayedText: '', // Currently visible text (for typewriter effect)
             isTyping: false,
             typingComplete: false

@@ -933,7 +933,7 @@ class SpriteGenApp {
         document.getElementById('dialogue-visible').checked = dialogue.visible !== false;
         
         // Update typing speed
-        const typingSpeed = dialogue.typingSpeed || 50;
+        const typingSpeed = dialogue.typingSpeed || 150;
         document.getElementById('dialogue-typing-speed').value = typingSpeed;
         document.getElementById('dialogue-typing-speed-value').textContent = `${typingSpeed} ms`;
     }
