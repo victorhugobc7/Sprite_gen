@@ -42,25 +42,31 @@
             <aside class="panel panel-left">
                 <div class="panel-section">
                     <h3>Characters</h3>
-                    <div id="character-list" class="asset-list">
-                        <button id="btn-new-character" class="btn-full">+ New Character</button>
+                    <div class="panel-section-content">
+                        <div id="character-list" class="asset-list">
+                            <button id="btn-new-character" class="btn-full">+ New Character</button>
+                        </div>
                     </div>
                 </div>
                 <div class="panel-section" id="character-sprites-section" style="display: none;">
                     <h3>Sprites <span id="character-sprites-name"></span></h3>
-                    <div id="character-sprites-list" class="asset-list">
-                        <div class="drop-zone" id="sprite-drop-zone">
-                            <p>Drop sprites here<br>or click to import</p>
-                            <input type="file" id="sprite-input" accept="image/*" multiple hidden>
+                    <div class="panel-section-content">
+                        <div id="character-sprites-list" class="asset-list">
+                            <div class="drop-zone" id="sprite-drop-zone">
+                                <p>Drop sprites here<br>or click to import</p>
+                                <input type="file" id="sprite-input" accept="image/*" multiple hidden>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="panel-section">
                     <h3>Backgrounds</h3>
-                    <div id="background-list" class="asset-list">
-                        <div class="drop-zone" id="bg-drop-zone">
-                            <p>Drop backgrounds<br>or click to import</p>
-                            <input type="file" id="bg-input" accept="image/*" multiple hidden>
+                    <div class="panel-section-content">
+                        <div id="background-list" class="asset-list">
+                            <div class="drop-zone" id="bg-drop-zone">
+                                <p>Drop backgrounds<br>or click to import</p>
+                                <input type="file" id="bg-input" accept="image/*" multiple hidden>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -83,210 +89,224 @@
             <aside class="panel panel-right">
                 <div class="panel-section">
                     <h3>Scene Properties</h3>
-                    <div class="property-group">
-                        <label>Scene Name</label>
-                        <input type="text" id="scene-name" placeholder="Scene 1">
-                    </div>
-                    <div class="property-group">
-                        <label>Duration (ms)</label>
-                        <input type="number" id="scene-duration" value="3000" min="100">
+                    <div class="panel-section-content">
+                        <div class="property-group">
+                            <label>Scene Name</label>
+                            <input type="text" id="scene-name" placeholder="Scene 1">
+                        </div>
+                        <div class="property-group">
+                            <label>Duration (ms)</label>
+                            <input type="number" id="scene-duration" value="3000" min="100">
+                        </div>
                     </div>
                 </div>
 
                 <div class="panel-section" id="sprite-properties" style="display: none;">
                     <h3>Sprite Properties</h3>
-                    <div class="property-group">
-                        <label>Active Sprite</label>
-                        <select id="sprite-variant-select"></select>
-                    </div>
-                    <div class="property-group">
-                        <button id="btn-replace-sprite" class="btn-secondary">Replace Image</button>
-                        <input type="file" id="replace-sprite-input" accept="image/*" style="display: none;">
-                    </div>
-                    <div class="property-group">
-                        <label>Position X</label>
-                        <input type="number" id="sprite-x" value="0">
-                    </div>
-                    <div class="property-group">
-                        <label>Position Y</label>
-                        <input type="number" id="sprite-y" value="0">
-                    </div>
-                    <div class="property-group">
-                        <label>Scale</label>
-                        <input type="range" id="sprite-scale" min="10" max="300" value="100">
-                        <span id="sprite-scale-value">100%</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Opacity</label>
-                        <input type="range" id="sprite-opacity" min="0" max="100" value="100">
-                        <span id="sprite-opacity-value">100%</span>
+                    <div class="panel-section-content">
+                        <div class="property-group">
+                            <label>Active Sprite</label>
+                            <select id="sprite-variant-select"></select>
+                        </div>
+                        <div class="property-group">
+                            <button id="btn-replace-sprite" class="btn-secondary">Replace Image</button>
+                            <input type="file" id="replace-sprite-input" accept="image/*" style="display: none;">
+                        </div>
+                        <div class="property-group">
+                            <label>Position X</label>
+                            <input type="number" id="sprite-x" value="0">
+                        </div>
+                        <div class="property-group">
+                            <label>Position Y</label>
+                            <input type="number" id="sprite-y" value="0">
+                        </div>
+                        <div class="property-group">
+                            <label>Scale</label>
+                            <input type="range" id="sprite-scale" min="10" max="300" value="100">
+                            <span id="sprite-scale-value">100%</span>
+                        </div>
+                        <div class="property-group">
+                            <label>Opacity</label>
+                            <input type="range" id="sprite-opacity" min="0" max="100" value="100">
+                            <span id="sprite-opacity-value">100%</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="panel-section">
+                <div class="panel-section collapsed">
                     <h3>Animation Settings</h3>
-                    <div class="property-group">
-                        <label>Breathing Speed</label>
-                        <input type="range" id="anim-breathing-speed" min="0" max="200" value="80">
-                        <span id="anim-breathing-speed-value">0.8 Hz</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Transition Duration</label>
-                        <input type="range" id="anim-transition-duration" min="30" max="300" value="70">
-                        <span id="anim-transition-duration-value">70 ms</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Position Transition Speed</label>
-                        <input type="range" id="anim-position-duration" min="100" max="1500" value="300">
-                        <span id="anim-position-duration-value">300 ms</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Position Easing Curve</label>
-                        <select id="anim-position-easing">
-                            <option value="linear">Linear</option>
-                            <option value="easeIn">Ease In</option>
-                            <option value="easeOut">Ease Out</option>
-                            <option value="easeInOut" selected>Ease In-Out</option>
-                            <option value="easeInCubic">Ease In Cubic</option>
-                            <option value="easeOutCubic">Ease Out Cubic</option>
-                            <option value="easeInOutCubic">Ease In-Out Cubic</option>
-                            <option value="easeInQuart">Ease In Quart</option>
-                            <option value="easeOutQuart">Ease Out Quart</option>
-                            <option value="easeInOutQuart">Ease In-Out Quart</option>
-                            <option value="easeOutBack">Ease Out Back (Overshoot)</option>
-                            <option value="easeOutElastic">Ease Out Elastic</option>
-                        </select>
+                    <div class="panel-section-content">
+                        <div class="property-group">
+                            <label>Breathing Speed</label>
+                            <input type="range" id="anim-breathing-speed" min="0" max="200" value="80">
+                            <span id="anim-breathing-speed-value">0.8 Hz</span>
+                        </div>
+                        <div class="property-group">
+                            <label>Transition Duration</label>
+                            <input type="range" id="anim-transition-duration" min="30" max="300" value="70">
+                            <span id="anim-transition-duration-value">70 ms</span>
+                        </div>
+                        <div class="property-group">
+                            <label>Position Transition Speed</label>
+                            <input type="range" id="anim-position-duration" min="100" max="1500" value="300">
+                            <span id="anim-position-duration-value">300 ms</span>
+                        </div>
+                        <div class="property-group">
+                            <label>Position Easing Curve</label>
+                            <select id="anim-position-easing">
+                                <option value="linear">Linear</option>
+                                <option value="easeIn">Ease In</option>
+                                <option value="easeOut">Ease Out</option>
+                                <option value="easeInOut" selected>Ease In-Out</option>
+                                <option value="easeInCubic">Ease In Cubic</option>
+                                <option value="easeOutCubic">Ease Out Cubic</option>
+                                <option value="easeInOutCubic">Ease In-Out Cubic</option>
+                                <option value="easeInQuart">Ease In Quart</option>
+                                <option value="easeOutQuart">Ease Out Quart</option>
+                                <option value="easeInOutQuart">Ease In-Out Quart</option>
+                                <option value="easeOutBack">Ease Out Back (Overshoot)</option>
+                                <option value="easeOutElastic">Ease Out Elastic</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <div class="panel-section">
+                <div class="panel-section collapsed">
                     <h3>Scene Transitions</h3>
-                    <div class="property-group">
-                        <label>Scene Transition Style</label>
-                        <select id="scene-transition-style">
-                            <option value="none">None (Instant)</option>
-                            <option value="fade" selected>Fade</option>
-                            <option value="fadeToBlack">Fade to Black</option>
-                            <option value="fadeToWhite">Fade to White</option>
-                            <option value="slideLeft">Slide Left</option>
-                            <option value="slideRight">Slide Right</option>
-                            <option value="slideUp">Slide Up</option>
-                            <option value="slideDown">Slide Down</option>
-                            <option value="wipeLeft">Wipe Left</option>
-                            <option value="wipeRight">Wipe Right</option>
-                        </select>
-                    </div>
-                    <div class="property-group">
-                        <label>Scene Transition Duration</label>
-                        <input type="range" id="scene-transition-duration" min="100" max="2000" value="500">
-                        <span id="scene-transition-duration-value">500 ms</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Background Transition Style</label>
-                        <select id="bg-transition-style">
-                            <option value="none">None (Instant)</option>
-                            <option value="fade" selected>Crossfade</option>
-                            <option value="fadeToBlack">Fade to Black</option>
-                        </select>
-                    </div>
-                    <div class="property-group">
-                        <label>Background Transition Duration</label>
-                        <input type="range" id="bg-transition-duration" min="100" max="2000" value="300">
-                        <span id="bg-transition-duration-value">300 ms</span>
+                    <div class="panel-section-content">
+                        <div class="property-group">
+                            <label>Scene Transition Style</label>
+                            <select id="scene-transition-style">
+                                <option value="none">None (Instant)</option>
+                                <option value="fade" selected>Fade</option>
+                                <option value="fadeToBlack">Fade to Black</option>
+                                <option value="fadeToWhite">Fade to White</option>
+                                <option value="slideLeft">Slide Left</option>
+                                <option value="slideRight">Slide Right</option>
+                                <option value="slideUp">Slide Up</option>
+                                <option value="slideDown">Slide Down</option>
+                                <option value="wipeLeft">Wipe Left</option>
+                                <option value="wipeRight">Wipe Right</option>
+                            </select>
+                        </div>
+                        <div class="property-group">
+                            <label>Scene Transition Duration</label>
+                            <input type="range" id="scene-transition-duration" min="100" max="2000" value="500">
+                            <span id="scene-transition-duration-value">500 ms</span>
+                        </div>
+                        <div class="property-group">
+                            <label>Background Transition Style</label>
+                            <select id="bg-transition-style">
+                                <option value="none">None (Instant)</option>
+                                <option value="fade" selected>Crossfade</option>
+                                <option value="fadeToBlack">Fade to Black</option>
+                            </select>
+                        </div>
+                        <div class="property-group">
+                            <label>Background Transition Duration</label>
+                            <input type="range" id="bg-transition-duration" min="100" max="2000" value="300">
+                            <span id="bg-transition-duration-value">300 ms</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="panel-section">
+                <div class="panel-section collapsed">
                     <h3>Audio Settings</h3>
-                    <div class="property-group">
-                        <label>Expression Change SFX</label>
-                        <div class="audio-upload-row">
-                            <span id="sfx-expression-name" class="audio-filename">No file</span>
-                            <button id="btn-upload-sfx-expression" class="btn-small">Upload</button>
-                            <button id="btn-clear-sfx-expression" class="btn-small btn-danger" title="Remove">✕</button>
-                            <input type="file" id="sfx-expression-input" accept="audio/*" style="display: none;">
+                    <div class="panel-section-content">
+                        <div class="property-group">
+                            <label>Expression Change SFX</label>
+                            <div class="audio-upload-row">
+                                <span id="sfx-expression-name" class="audio-filename">No file</span>
+                                <button id="btn-upload-sfx-expression" class="btn-small">Upload</button>
+                                <button id="btn-clear-sfx-expression" class="btn-small btn-danger" title="Remove">✕</button>
+                                <input type="file" id="sfx-expression-input" accept="audio/*" style="display: none;">
+                            </div>
                         </div>
-                    </div>
-                    <div class="property-group">
-                        <label>Expression SFX Volume</label>
-                        <input type="range" id="sfx-expression-volume" min="0" max="100" value="50">
-                        <span id="sfx-expression-volume-value">50%</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Background Music</label>
-                        <div class="audio-upload-row">
-                            <span id="bgm-name" class="audio-filename">No file</span>
-                            <button id="btn-upload-bgm" class="btn-small">Upload</button>
-                            <button id="btn-clear-bgm" class="btn-small btn-danger" title="Remove">✕</button>
-                            <input type="file" id="bgm-input" accept="audio/*" style="display: none;">
+                        <div class="property-group">
+                            <label>Expression SFX Volume</label>
+                            <input type="range" id="sfx-expression-volume" min="0" max="100" value="50">
+                            <span id="sfx-expression-volume-value">50%</span>
                         </div>
-                    </div>
-                    <div class="property-group">
-                        <label>BGM Volume</label>
-                        <input type="range" id="bgm-volume" min="0" max="100" value="30">
-                        <span id="bgm-volume-value">30%</span>
-                    </div>
-                    <div class="property-group">
-                        <button id="btn-toggle-bgm" class="btn-secondary">▶ Play BGM</button>
+                        <div class="property-group">
+                            <label>Background Music</label>
+                            <div class="audio-upload-row">
+                                <span id="bgm-name" class="audio-filename">No file</span>
+                                <button id="btn-upload-bgm" class="btn-small">Upload</button>
+                                <button id="btn-clear-bgm" class="btn-small btn-danger" title="Remove">✕</button>
+                                <input type="file" id="bgm-input" accept="audio/*" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="property-group">
+                            <label>BGM Volume</label>
+                            <input type="range" id="bgm-volume" min="0" max="100" value="30">
+                            <span id="bgm-volume-value">30%</span>
+                        </div>
+                        <div class="property-group">
+                            <button id="btn-toggle-bgm" class="btn-secondary">▶ Play BGM</button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="panel-section">
                     <h3>Dialogue Lines</h3>
-                    <div class="dialogue-controls">
-                        <button id="btn-add-dialogue" title="Add dialogue line">+ Add Line</button>
-                        <button id="btn-import-csv" title="Import from CSV">Import CSV</button>
-                        <input type="file" id="csv-input" accept=".csv" style="display: none;">
-                    </div>
-                    <div class="property-group">
-                        <label>Fade Duration (ms)</label>
-                        <input type="range" id="dialogue-fade-duration" min="100" max="1000" value="300">
-                        <span id="dialogue-fade-duration-value">300 ms</span>
-                    </div>
-                    <div id="dialogue-lines-list" class="dialogue-lines-list">
-                        <!-- Dialogue lines will be added here dynamically -->
+                    <div class="panel-section-content">
+                        <div class="dialogue-controls">
+                            <button id="btn-add-dialogue" title="Add dialogue line">+ Add Line</button>
+                            <button id="btn-import-csv" title="Import from CSV">Import CSV</button>
+                            <input type="file" id="csv-input" accept=".csv" style="display: none;">
+                        </div>
+                        <div class="property-group">
+                            <label>Fade Duration (ms)</label>
+                            <input type="range" id="dialogue-fade-duration" min="100" max="1000" value="300">
+                            <span id="dialogue-fade-duration-value">300 ms</span>
+                        </div>
+                        <div id="dialogue-lines-list" class="dialogue-lines-list">
+                            <!-- Dialogue lines will be added here dynamically -->
+                        </div>
                     </div>
                 </div>
 
                 <div class="panel-section" id="dialogue-editor-section">
                     <h3>Edit Dialogue <span id="dialogue-line-number"></span></h3>
-                    <div class="property-group">
-                        <label>Character Name</label>
-                        <input type="text" id="dialogue-character" placeholder="Character">
-                    </div>
-                    <div class="property-group">
-                        <label>Dialogue Text <small>(use [[ms]] for pauses)</small></label>
-                        <textarea id="dialogue-text" rows="4" placeholder="Hello![[500]] How are you?"></textarea>
-                    </div>
-                    <div class="property-group">
-                        <label>Typing Speed (ms/char)</label>
-                        <input type="range" id="dialogue-typing-speed" min="10" max="300" value="150">
-                        <span id="dialogue-typing-speed-value">150 ms</span>
-                    </div>
-                    <div class="property-group">
-                        <label>Text Style</label>
-                        <select id="dialogue-style">
-                            <option value="default">Default</option>
-                            <option value="thought">Thought</option>
-                            <option value="shout">Shout</option>
-                            <option value="whisper">Whisper</option>
-                        </select>
-                    </div>
-                    <div class="property-group">
-                        <label>Box Color</label>
-                        <div class="color-picker-row">
-                            <input type="color" id="dialogue-color" value="#e94560">
-                            <button id="btn-auto-color" title="Auto-detect from sprite">Auto</button>
+                    <div class="panel-section-content">
+                        <div class="property-group">
+                            <label>Character Name</label>
+                            <input type="text" id="dialogue-character" placeholder="Character">
                         </div>
-                    </div>
-                    <div class="property-group">
-                        <label>
-                            <input type="checkbox" id="dialogue-visible" checked>
-                            Show Dialogue Box
-                        </label>
-                    </div>
-                    <div class="property-group">
-                        <button id="btn-delete-dialogue" class="btn-danger">Delete This Line</button>
+                        <div class="property-group">
+                            <label>Dialogue Text <small>(use [[ms]] for pauses)</small></label>
+                            <textarea id="dialogue-text" rows="4" placeholder="Hello![[500]] How are you?"></textarea>
+                        </div>
+                        <div class="property-group">
+                            <label>Typing Speed (ms/char)</label>
+                            <input type="range" id="dialogue-typing-speed" min="10" max="300" value="150">
+                            <span id="dialogue-typing-speed-value">150 ms</span>
+                        </div>
+                        <div class="property-group">
+                            <label>Text Style</label>
+                            <select id="dialogue-style">
+                                <option value="default">Default</option>
+                                <option value="thought">Thought</option>
+                                <option value="shout">Shout</option>
+                                <option value="whisper">Whisper</option>
+                            </select>
+                        </div>
+                        <div class="property-group">
+                            <label>Box Color</label>
+                            <div class="color-picker-row">
+                                <input type="color" id="dialogue-color" value="#e94560">
+                                <button id="btn-auto-color" title="Auto-detect from sprite">Auto</button>
+                            </div>
+                        </div>
+                        <div class="property-group">
+                            <label>
+                                <input type="checkbox" id="dialogue-visible" checked>
+                                Show Dialogue Box
+                            </label>
+                        </div>
+                        <div class="property-group">
+                            <button id="btn-delete-dialogue" class="btn-danger">Delete This Line</button>
+                        </div>
                     </div>
                 </div>
             </aside>

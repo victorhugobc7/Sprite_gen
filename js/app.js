@@ -48,6 +48,9 @@ class SpriteGenApp {
      * Bind all event listeners
      */
     bindEventListeners() {
+        // Accordion functionality for panel sections
+        this.setupAccordions();
+
         // Toolbar buttons
         document.getElementById('btn-new').addEventListener('click', () => this.newProject());
         document.getElementById('btn-save').addEventListener('click', () => this.saveProject());
@@ -228,6 +231,22 @@ class SpriteGenApp {
         document.getElementById('btn-toggle-bgm').addEventListener('click', () => {
             const playing = this.audioManager.toggleBgm();
             document.getElementById('btn-toggle-bgm').textContent = playing ? '⏸ Pause BGM' : '▶ Play BGM';
+        });
+    }
+
+    /**
+     * Set up accordion functionality for collapsible panel sections
+     */
+    setupAccordions() {
+        const sections = document.querySelectorAll('.panel-section h3');
+        sections.forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Don't toggle if clicking on an interactive element inside the header
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+                
+                const section = header.parentElement;
+                section.classList.toggle('collapsed');
+            });
         });
     }
 
