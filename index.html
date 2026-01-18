@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpriteGen - Visual Novel Cutscene Creator</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        @font-face {
+            font-family: 'Calamity';
+            src: url('assets/fonts/Calamity-Regular.ttf') format('truetype');
+            font-weight: normal;
+        }
+        @font-face {
+            font-family: 'Calamity';
+            src: url('assets/fonts/Calamity-Bold.ttf') format('truetype');
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header Toolbar -->
+        <header class="toolbar">
+            <div class="toolbar-left">
+                <h1 class="logo">SpriteGen</h1>
+                <div class="toolbar-buttons">
+                    <button id="btn-new" title="New Project">New</button>
+                    <button id="btn-save" title="Save Project">Save</button>
+                    <button id="btn-load" title="Load Project">Load</button>
+                    <button id="btn-export" title="Export Sequence">Export</button>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <button id="btn-preview" class="btn-primary" title="Preview Sequence">▶ Preview</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Left Panel - Assets -->
+            <aside class="panel panel-left">
+                <div class="panel-section">
+                    <h3>Characters</h3>
+                    <div id="character-list" class="asset-list">
+                        <button id="btn-new-character" class="btn-full">+ New Character</button>
+                    </div>
+                </div>
+                <div class="panel-section" id="character-sprites-section" style="display: none;">
+                    <h3>Sprites <span id="character-sprites-name"></span></h3>
+                    <div id="character-sprites-list" class="asset-list">
+                        <div class="drop-zone" id="sprite-drop-zone">
+                            <p>Drop sprites here<br>or click to import</p>
+                            <input type="file" id="sprite-input" accept="image/*" multiple hidden>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-section">
+                    <h3>Backgrounds</h3>
+                    <div id="background-list" class="asset-list">
+                        <div class="drop-zone" id="bg-drop-zone">
+                            <p>Drop backgrounds<br>or click to import</p>
+                            <input type="file" id="bg-input" accept="image/*" multiple hidden>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center - Canvas -->
+            <section class="canvas-container">
+                <div class="canvas-wrapper">
+                    <canvas id="main-canvas" width="1920" height="1080"></canvas>
+                    <div id="canvas-overlay"></div>
+                </div>
+                <div class="canvas-controls">
+                    <span class="zoom-label">Zoom:</span>
+                    <input type="range" id="zoom-slider" min="25" max="100" value="50">
+                    <span id="zoom-value">50%</span>
+                </div>
+            </section>
+
+            <!-- Right Panel - Properties -->
+            <aside class="panel panel-right">
+                <div class="panel-section">
+                    <h3>Scene Properties</h3>
+                    <div class="property-group">
+                        <label>Scene Name</label>
+                        <input type="text" id="scene-name" placeholder="Scene 1">
+                    </div>
+                    <div class="property-group">
+                        <label>Duration (ms)</label>
+                        <input type="number" id="scene-duration" value="3000" min="100">
+                    </div>
+                </div>
+
+                <div class="panel-section" id="sprite-properties" style="display: none;">
+                    <h3>Sprite Properties</h3>
+                    <div class="property-group">
+                        <label>Active Sprite</label>
+                        <select id="sprite-variant-select"></select>
+                    </div>
+                    <div class="property-group">
+                        <label>Position X</label>
+                        <input type="number" id="sprite-x" value="0">
+                    </div>
+                    <div class="property-group">
+                        <label>Position Y</label>
+                        <input type="number" id="sprite-y" value="0">
+                    </div>
+                    <div class="property-group">
+                        <label>Scale</label>
+                        <input type="range" id="sprite-scale" min="10" max="300" value="100">
+                        <span id="sprite-scale-value">100%</span>
+                    </div>
+                    <div class="property-group">
+                        <label>Opacity</label>
+                        <input type="range" id="sprite-opacity" min="0" max="100" value="100">
+                        <span id="sprite-opacity-value">100%</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Animation Settings</h3>
+                    <div class="property-group">
+                        <label>Breathing Speed</label>
+                        <input type="range" id="anim-breathing-speed" min="0" max="200" value="80">
+                        <span id="anim-breathing-speed-value">0.8 Hz</span>
+                    </div>
+                    <div class="property-group">
+                        <label>Transition Duration</label>
+                        <input type="range" id="anim-transition-duration" min="30" max="300" value="70">
+                        <span id="anim-transition-duration-value">70 ms</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Dialogue</h3>
+                    <div class="property-group">
+                        <label>Character Name</label>
+                        <input type="text" id="dialogue-character" placeholder="Character">
+                    </div>
+                    <div class="property-group">
+                        <label>Dialogue Text <small>(use [[ms]] for pauses)</small></label>
+                        <textarea id="dialogue-text" rows="4" placeholder="Hello![[500]] How are you?"></textarea>
+                    </div>
+                    <div class="property-group">
+                        <label>Typing Speed (ms/char)</label>
+                        <input type="range" id="dialogue-typing-speed" min="10" max="150" value="50">
+                        <span id="dialogue-typing-speed-value">50 ms</span>
+                    </div>
+                    <div class="property-group">
+                        <label>Text Style</label>
+                        <select id="dialogue-style">
+                            <option value="default">Default</option>
+                            <option value="thought">Thought</option>
+                            <option value="shout">Shout</option>
+                            <option value="whisper">Whisper</option>
+                        </select>
+                    </div>
+                    <div class="property-group">
+                        <label>Box Color</label>
+                        <div class="color-picker-row">
+                            <input type="color" id="dialogue-color" value="#e94560">
+                            <button id="btn-auto-color" title="Auto-detect from sprite">Auto</button>
+                        </div>
+                    </div>
+                    <div class="property-group">
+                        <label>
+                            <input type="checkbox" id="dialogue-visible" checked>
+                            Show Dialogue Box
+                        </label>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Bottom - Timeline -->
+        <footer class="timeline-container">
+            <div class="timeline-controls">
+                <button id="btn-add-scene" title="Add Scene">+ Scene</button>
+                <button id="btn-duplicate-scene" title="Duplicate Scene">Duplicate</button>
+                <button id="btn-delete-scene" title="Delete Scene">Delete</button>
+            </div>
+            <div class="timeline-track" id="timeline-track">
+                <!-- Scene thumbnails will be added here dynamically -->
+            </div>
+        </footer>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="modal" style="display: none;">
+        <div class="modal-content preview-content">
+            <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+            <div class="preview-controls">
+                <button id="preview-prev">⏮</button>
+                <button id="preview-play">▶</button>
+                <button id="preview-next">⏭</button>
+                <span id="preview-counter">1 / 1</span>
+                <button id="preview-close" class="btn-close">✕</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for project loading -->
+    <input type="file" id="project-input" accept=".json" hidden>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
