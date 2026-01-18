@@ -176,6 +176,20 @@ class SpriteGenApp {
             }
         });
 
+        // Replace sprite image
+        document.getElementById('btn-replace-sprite').addEventListener('click', () => {
+            if (this.canvas.selectedSprite) {
+                document.getElementById('replace-sprite-input').click();
+            }
+        });
+
+        document.getElementById('replace-sprite-input').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0 && this.canvas.selectedSprite) {
+                await this.replaceSpriteImage(this.canvas.selectedSprite.id, e.target.files[0]);
+                e.target.value = ''; // Reset for next upload
+            }
+        });
+
         document.getElementById('sprite-x').addEventListener('input', debounce((e) => {
             if (this.canvas.selectedSprite) {
                 this.canvas.updateSprite(this.canvas.selectedSprite.id, { 
@@ -207,6 +221,39 @@ class SpriteGenApp {
                 this.canvas.updateSprite(this.canvas.selectedSprite.id, { opacity });
             }
         });
+    }
+
+    /**
+     * Replace a sprite's image with a new file
+     * @param {string} spriteId - ID of sprite to replace
+     * @param {File} file - New image file
+     */
+    async replaceSpriteImage(spriteId, file) {
+        const sprite = this.canvas.selectedSprite;
+        if (!sprite) return;
+
+        // Get current background removal setting
+        const removeWhiteBg = sprite.removeBackground !== false;
+        
+        // Replace image in sprite manager
+        const updatedSprite = await this.spriteManager.replaceSpriteImage(spriteId, file, removeWhiteBg);
+        if (!updatedSprite) return;
+        
+        // Update canvas sprite reference
+        const canvasSprite = this.canvas.sprites.find(s => s.id === spriteId);
+        if (canvasSprite) {
+            canvasSprite.image = updatedSprite.image;
+            canvasSprite.originalImage = updatedSprite.originalImage;
+            canvasSprite.name = updatedSprite.name;
+            canvasSprite.dominantColor = updatedSprite.dominantColor;
+        }
+        
+        // Re-render
+        this.canvas.render();
+        this.saveCurrentSceneState();
+        
+        // Update character list UI to reflect new sprite name
+        this.updateCharacterListCount();
     }
 
     /**

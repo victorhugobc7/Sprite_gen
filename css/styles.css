@@ -83,6 +83,17 @@ body {
     background-color: var(--accent-hover) !important;
 }
 
+.btn-secondary {
+    background-color: var(--bg-input) !important;
+    border: 1px solid var(--border-color) !important;
+    width: 100%;
+}
+
+.btn-secondary:hover {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
 /* Main Content Area */
 .main-content {
     display: flex;

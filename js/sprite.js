@@ -154,8 +154,34 @@ export class SpriteManager {
         }
     }
 
-    /**
-     * Import a background image
+    /**     * Replace a sprite's image with a new file
+     * @param {string} spriteId - ID of sprite to replace
+     * @param {File} file - New image file
+     * @param {boolean} removeWhiteBg - Whether to remove white background
+     * @returns {Promise<Object>} Updated sprite data
+     */
+    async replaceSpriteImage(spriteId, file, removeWhiteBg = true) {
+        const sprite = this.sprites.get(spriteId);
+        if (!sprite) return null;
+        
+        const originalImage = await loadImageFromFile(file);
+        
+        let processedImage = originalImage;
+        if (removeWhiteBg) {
+            processedImage = await this.removeWhiteBackground(originalImage);
+        }
+        
+        // Update the sprite with new images
+        sprite.originalImage = originalImage;
+        sprite.image = processedImage;
+        sprite.name = file.name.replace(/\.[^\/\.]+$/, '');
+        sprite.removeBackground = removeWhiteBg;
+        sprite.dominantColor = this.extractDominantColor(processedImage);
+        
+        return sprite;
+    }
+
+    /**     * Import a background image
      * @param {File} file - Image file
      * @returns {Promise<Object>} Background data object
      */
