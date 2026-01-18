@@ -37,6 +37,9 @@ export class CanvasEngine {
         this.positionTransitionDuration = 0.3; // 300ms default
         this.positionTransitionEasing = 'easeInOut';
         
+        // Dialogue fade opacity (for transitions between lines)
+        this.dialogueFadeOpacity = 1;
+        
         // Breathing animation state
         this.breathingPhase = 0;
         this.breathingSpeed = 0.8; // Cycles per second
@@ -479,6 +482,15 @@ export class CanvasEngine {
     }
 
     /**
+     * Set dialogue fade opacity
+     * @param {number} opacity - Opacity value 0-1
+     */
+    setDialogueFadeOpacity(opacity) {
+        this.dialogueFadeOpacity = opacity;
+        this.render();
+    }
+
+    /**
      * Clear the canvas
      */
     clear() {
@@ -608,7 +620,13 @@ export class CanvasEngine {
         // Get box color (default to accent if not set)
         const boxColor = dialogue.boxColor || '#e94560';
         
+        // Get fade opacity (default to 1)
+        const fadeOpacity = this.dialogueFadeOpacity !== undefined ? this.dialogueFadeOpacity : 1;
+        
         this.ctx.save();
+        
+        // Apply global alpha for fade effect
+        this.ctx.globalAlpha = fadeOpacity;
         
         // Draw box background with slight transparency
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';

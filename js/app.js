@@ -27,6 +27,9 @@ class SpriteGenApp {
         // Currently selected character in the left panel
         this.selectedCharacterId = null;
         
+        // Currently selected dialogue line index
+        this.selectedDialogueIndex = 0;
+        
         this.init();
     }
 
@@ -461,32 +464,48 @@ class SpriteGenApp {
      * Set up dialogue property input listeners
      */
     setupDialoguePropertyListeners() {
-        document.getElementById('dialogue-character').addEventListener('input', debounce((e) => {
-            const dialogue = this.dialogueSystem.setCharacter(e.target.value);
-            this.canvas.setDialogue(dialogue);
+        // Add dialogue line button
+        document.getElementById('btn-add-dialogue').addEventListener('click', () => this.addDialogueLine());
+        
+        // Delete dialogue line button
+        document.getElementById('btn-delete-dialogue').addEventListener('click', () => this.deleteDialogueLine());
+        
+        // CSV import
+        document.getElementById('btn-import-csv').addEventListener('click', () => {
+            document.getElementById('csv-input').click();
+        });
+        
+        document.getElementById('csv-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.importCSV(e.target.files[0]);
+                e.target.value = ''; // Reset for next upload
+            }
+        });
+        
+        // Fade duration
+        document.getElementById('dialogue-fade-duration').addEventListener('input', (e) => {
+            const duration = parseInt(e.target.value);
+            document.getElementById('dialogue-fade-duration-value').textContent = `${duration} ms`;
+            this.dialogueSystem.setFadeDuration(duration);
             this.saveCurrentSceneState();
+        });
+
+        document.getElementById('dialogue-character').addEventListener('input', debounce((e) => {
+            this.updateCurrentDialogueLine({ character: e.target.value });
         }, 100));
 
         document.getElementById('dialogue-text').addEventListener('input', debounce((e) => {
-            const dialogue = this.dialogueSystem.setText(e.target.value);
-            // Show full text immediately in editor (no typing animation during editing)
-            dialogue.displayedText = this.dialogueSystem.getCleanText(e.target.value);
-            this.canvas.setDialogue(dialogue);
-            this.saveCurrentSceneState();
+            this.updateCurrentDialogueLine({ text: e.target.value });
         }, 100));
 
         document.getElementById('dialogue-typing-speed').addEventListener('input', (e) => {
             const speed = parseInt(e.target.value);
             document.getElementById('dialogue-typing-speed-value').textContent = `${speed} ms`;
-            const dialogue = this.dialogueSystem.setTypingSpeed(speed);
-            this.canvas.setDialogue(dialogue);
-            this.saveCurrentSceneState();
+            this.updateCurrentDialogueLine({ typingSpeed: speed });
         });
 
         document.getElementById('dialogue-style').addEventListener('change', (e) => {
-            const dialogue = this.dialogueSystem.setStyle(e.target.value);
-            this.canvas.setDialogue(dialogue);
-            this.saveCurrentSceneState();
+            this.updateCurrentDialogueLine({ style: e.target.value });
         });
 
         document.getElementById('dialogue-color').addEventListener('input', (e) => {
@@ -498,9 +517,7 @@ class SpriteGenApp {
                     character.boxColor = e.target.value;
                 }
             }
-            const dialogue = this.dialogueSystem.setBoxColor(e.target.value);
-            this.canvas.setDialogue(dialogue);
-            this.saveCurrentSceneState();
+            this.updateCurrentDialogueLine({ boxColor: e.target.value });
         });
 
         document.getElementById('btn-auto-color').addEventListener('click', () => {
@@ -508,10 +525,244 @@ class SpriteGenApp {
         });
 
         document.getElementById('dialogue-visible').addEventListener('change', (e) => {
-            const dialogue = this.dialogueSystem.setVisible(e.target.checked);
-            this.canvas.setDialogue(dialogue);
-            this.saveCurrentSceneState();
+            this.updateCurrentDialogueLine({ visible: e.target.checked });
         });
+    }
+
+    /**
+     * Update the currently selected dialogue line
+     * @param {Object} updates - Properties to update
+     */
+    updateCurrentDialogueLine(updates) {
+        const scene = this.timeline.getCurrentScene();
+        if (!scene || !scene.dialogues || scene.dialogues.length === 0) return;
+        
+        // Update the current dialogue line
+        scene.dialogues[this.selectedDialogueIndex] = {
+            ...scene.dialogues[this.selectedDialogueIndex],
+            ...updates
+        };
+        
+        // Update the dialogue system with current line
+        const currentLine = scene.dialogues[this.selectedDialogueIndex];
+        const dialogue = this.dialogueSystem.setDialogue(currentLine);
+        dialogue.displayedText = this.dialogueSystem.getCleanText(currentLine.text || '');
+        this.canvas.setDialogue(dialogue);
+        
+        // Update the list UI
+        this.updateDialogueLinesListUI();
+        this.saveCurrentSceneState();
+    }
+
+    /**
+     * Add a new dialogue line to the current scene
+     */
+    addDialogueLine() {
+        const scene = this.timeline.getCurrentScene();
+        if (!scene) return;
+        
+        if (!scene.dialogues) {
+            scene.dialogues = [];
+        }
+        
+        scene.dialogues.push({
+            character: '',
+            text: '',
+            style: 'default',
+            visible: true,
+            boxColor: '#e94560',
+            typingSpeed: 150
+        });
+        
+        this.selectedDialogueIndex = scene.dialogues.length - 1;
+        this.updateDialogueLinesListUI();
+        this.selectDialogueLine(this.selectedDialogueIndex);
+        this.saveCurrentSceneState();
+    }
+
+    /**
+     * Delete the currently selected dialogue line
+     */
+    deleteDialogueLine() {
+        const scene = this.timeline.getCurrentScene();
+        if (!scene || !scene.dialogues || scene.dialogues.length <= 1) {
+            alert('Cannot delete the last dialogue line.');
+            return;
+        }
+        
+        scene.dialogues.splice(this.selectedDialogueIndex, 1);
+        
+        if (this.selectedDialogueIndex >= scene.dialogues.length) {
+            this.selectedDialogueIndex = scene.dialogues.length - 1;
+        }
+        
+        this.updateDialogueLinesListUI();
+        this.selectDialogueLine(this.selectedDialogueIndex);
+        this.saveCurrentSceneState();
+    }
+
+    /**
+     * Select a dialogue line for editing
+     * @param {number} index - Index of the dialogue line
+     */
+    selectDialogueLine(index) {
+        const scene = this.timeline.getCurrentScene();
+        if (!scene || !scene.dialogues) return;
+        
+        this.selectedDialogueIndex = Math.max(0, Math.min(index, scene.dialogues.length - 1));
+        const line = scene.dialogues[this.selectedDialogueIndex];
+        
+        if (line) {
+            const dialogue = this.dialogueSystem.setDialogue(line);
+            dialogue.displayedText = this.dialogueSystem.getCleanText(line.text || '');
+            this.canvas.setDialogue(dialogue);
+            this.updateDialogueEditorUI(line);
+            this.updateDialogueLinesListUI();
+        }
+    }
+
+    /**
+     * Update dialogue lines list UI
+     */
+    updateDialogueLinesListUI() {
+        const scene = this.timeline.getCurrentScene();
+        const list = document.getElementById('dialogue-lines-list');
+        if (!list) return;
+        
+        list.innerHTML = '';
+        
+        const dialogues = scene?.dialogues || [];
+        
+        dialogues.forEach((line, index) => {
+            const item = document.createElement('div');
+            item.className = 'dialogue-line-item' + (index === this.selectedDialogueIndex ? ' active' : '');
+            
+            const charPreview = line.character || 'No character';
+            const textPreview = (line.text || 'Empty').replace(/\[\[\d+\]\]/g, '').substring(0, 30);
+            
+            item.innerHTML = `
+                <span class="line-number">${index + 1}</span>
+                <span class="line-character">${charPreview}:</span>
+                <span class="line-preview">${textPreview}${line.text?.length > 30 ? '...' : ''}</span>
+            `;
+            
+            item.addEventListener('click', () => this.selectDialogueLine(index));
+            list.appendChild(item);
+        });
+        
+        // Update line number in editor header
+        const lineNumEl = document.getElementById('dialogue-line-number');
+        if (lineNumEl) {
+            lineNumEl.textContent = `(Line ${this.selectedDialogueIndex + 1} of ${dialogues.length})`;
+        }
+    }
+
+    /**
+     * Update dialogue editor UI with current line data
+     * @param {Object} line - Dialogue line data
+     */
+    updateDialogueEditorUI(line) {
+        if (!line) return;
+        document.getElementById('dialogue-character').value = line.character || '';
+        document.getElementById('dialogue-text').value = line.text || '';
+        document.getElementById('dialogue-style').value = line.style || 'default';
+        document.getElementById('dialogue-color').value = line.boxColor || '#e94560';
+        document.getElementById('dialogue-visible').checked = line.visible !== false;
+        
+        const typingSpeed = line.typingSpeed || 150;
+        document.getElementById('dialogue-typing-speed').value = typingSpeed;
+        document.getElementById('dialogue-typing-speed-value').textContent = `${typingSpeed} ms`;
+    }
+
+    /**
+     * Import dialogue from CSV file
+     * @param {File} file - CSV file
+     */
+    async importCSV(file) {
+        const text = await file.text();
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+        
+        if (lines.length < 2) {
+            alert('CSV file must have at least a header row and one data row.');
+            return;
+        }
+        
+        // Parse header
+        const header = this.parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+        const characterIdx = header.findIndex(h => h === 'character' || h === 'name');
+        const textIdx = header.findIndex(h => h === 'text' || h === 'dialogue' || h === 'line');
+        const styleIdx = header.findIndex(h => h === 'style');
+        const colorIdx = header.findIndex(h => h === 'color' || h === 'boxcolor');
+        
+        if (textIdx === -1) {
+            alert('CSV must have a "text" or "dialogue" column.');
+            return;
+        }
+        
+        const scene = this.timeline.getCurrentScene();
+        if (!scene) return;
+        
+        // Clear existing dialogues and add new ones
+        scene.dialogues = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const values = this.parseCSVLine(lines[i]);
+            if (values.length === 0) continue;
+            
+            scene.dialogues.push({
+                character: characterIdx !== -1 ? values[characterIdx] || '' : '',
+                text: values[textIdx] || '',
+                style: styleIdx !== -1 ? values[styleIdx] || 'default' : 'default',
+                boxColor: colorIdx !== -1 ? values[colorIdx] || '#e94560' : '#e94560',
+                visible: true,
+                typingSpeed: 150
+            });
+        }
+        
+        if (scene.dialogues.length === 0) {
+            scene.dialogues.push({
+                character: '',
+                text: '',
+                style: 'default',
+                visible: true,
+                boxColor: '#e94560',
+                typingSpeed: 150
+            });
+        }
+        
+        this.selectedDialogueIndex = 0;
+        this.updateDialogueLinesListUI();
+        this.selectDialogueLine(0);
+        this.saveCurrentSceneState();
+        
+        alert(`Imported ${scene.dialogues.length} dialogue lines from CSV.`);
+    }
+
+    /**
+     * Parse a CSV line handling quoted values
+     * @param {string} line - CSV line
+     * @returns {Array} Array of values
+     */
+    parseCSVLine(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        values.push(current.trim());
+        return values;
     }
 
     /**
@@ -808,7 +1059,10 @@ class SpriteGenApp {
             characterId: s.characterId,
             variantIndex: s.variantIndex
         }));
-        scene.dialogue = this.dialogueSystem.getDialogue();
+        
+        // Save dialogues array (multi-line support)
+        // scene.dialogues is already being updated directly in updateCurrentDialogueLine
+        scene.fadeDuration = this.dialogueSystem.getFadeDuration();
         
         // Update thumbnail
         this.updateSceneThumbnail(scene.id);
@@ -892,22 +1146,46 @@ class SpriteGenApp {
             }
         }
 
-        // Load dialogue
-        const dialogueData = scene.dialogue || {
-            character: '',
-            text: '',
-            style: 'default',
-            visible: false
-        };
+        // Load dialogue - support both legacy single dialogue and new multi-line
+        let dialogues = scene.dialogues;
         
+        // Migrate legacy single dialogue
+        if (!dialogues && scene.dialogue) {
+            dialogues = [scene.dialogue];
+            scene.dialogues = dialogues;
+            scene.dialogue = null;
+        }
+        
+        if (!dialogues || dialogues.length === 0) {
+            dialogues = [{
+                character: '',
+                text: '',
+                style: 'default',
+                visible: false,
+                boxColor: '#e94560',
+                typingSpeed: 150
+            }];
+            scene.dialogues = dialogues;
+        }
+        
+        // Set fade duration from scene
+        if (scene.fadeDuration) {
+            this.dialogueSystem.setFadeDuration(scene.fadeDuration);
+        }
+        
+        // Reset to first dialogue line
+        this.selectedDialogueIndex = 0;
+        const dialogueData = dialogues[0];
+        
+        this.dialogueSystem.setDialogueLines(dialogues);
         this.dialogueSystem.setDialogue(dialogueData);
         const dialogue = this.dialogueSystem.getDialogue();
         
-        // Calculate typing duration
+        // Calculate typing duration for all dialogue lines
         let typingDuration = 0;
         
         if (startTyping && dialogue.visible && dialogue.text) {
-            // Parse to calculate total typing duration
+            // Calculate typing duration for first line
             const segments = this.dialogueSystem.parseTextWithPauses(dialogue.text);
             for (const segment of segments) {
                 if (segment.type === 'text') {
@@ -917,16 +1195,33 @@ class SpriteGenApp {
                 }
             }
             
+            // Add time for additional lines (typing + fade transitions)
+            for (let i = 1; i < dialogues.length; i++) {
+                const line = dialogues[i];
+                if (line.visible && line.text) {
+                    typingDuration += this.dialogueSystem.getFadeDuration();
+                    const lineSegments = this.dialogueSystem.parseTextWithPauses(line.text);
+                    for (const segment of lineSegments) {
+                        if (segment.type === 'text') {
+                            typingDuration += segment.content.length * (line.typingSpeed || 150);
+                        } else if (segment.type === 'pause') {
+                            typingDuration += segment.content;
+                        }
+                    }
+                }
+            }
+            
             // Start typing animation
             dialogue.displayedText = '';
             this.canvas.setDialogue(dialogue);
             
             this.dialogueSystem.startTyping(
                 (updatedDialogue) => {
+                    this.canvas.setDialogueFadeOpacity(this.dialogueSystem.getFadeOpacity());
                     this.canvas.setDialogue(updatedDialogue);
                 },
                 () => {
-                    // Typing complete
+                    // Typing complete for current line
                 }
             );
         } else {
@@ -935,7 +1230,7 @@ class SpriteGenApp {
             this.canvas.setDialogue(dialogue);
         }
         
-        this.updateDialogueUI(dialogueData);
+        this.updateDialogueUI(scene);
         this.canvas.render();
         
         return { typingDuration };
@@ -953,18 +1248,22 @@ class SpriteGenApp {
     /**
      * Update dialogue UI from scene data
      */
-    updateDialogueUI(dialogue) {
-        if (!dialogue) return;
-        document.getElementById('dialogue-character').value = dialogue.character || '';
-        document.getElementById('dialogue-text').value = dialogue.text || '';
-        document.getElementById('dialogue-style').value = dialogue.style || 'default';
-        document.getElementById('dialogue-color').value = dialogue.boxColor || '#e94560';
-        document.getElementById('dialogue-visible').checked = dialogue.visible !== false;
+    updateDialogueUI(scene) {
+        if (!scene) return;
         
-        // Update typing speed
-        const typingSpeed = dialogue.typingSpeed || 150;
-        document.getElementById('dialogue-typing-speed').value = typingSpeed;
-        document.getElementById('dialogue-typing-speed-value').textContent = `${typingSpeed} ms`;
+        // Update fade duration
+        const fadeDuration = scene.fadeDuration || 300;
+        document.getElementById('dialogue-fade-duration').value = fadeDuration;
+        document.getElementById('dialogue-fade-duration-value').textContent = `${fadeDuration} ms`;
+        
+        // Update dialogue lines list
+        this.updateDialogueLinesListUI();
+        
+        // Select first line if available
+        const dialogues = scene.dialogues || [];
+        if (dialogues.length > 0) {
+            this.selectDialogueLine(this.selectedDialogueIndex);
+        }
     }
 
     /**

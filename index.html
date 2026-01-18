@@ -156,7 +156,24 @@
                 </div>
 
                 <div class="panel-section">
-                    <h3>Dialogue</h3>
+                    <h3>Dialogue Lines</h3>
+                    <div class="dialogue-controls">
+                        <button id="btn-add-dialogue" title="Add dialogue line">+ Add Line</button>
+                        <button id="btn-import-csv" title="Import from CSV">Import CSV</button>
+                        <input type="file" id="csv-input" accept=".csv" style="display: none;">
+                    </div>
+                    <div class="property-group">
+                        <label>Fade Duration (ms)</label>
+                        <input type="range" id="dialogue-fade-duration" min="100" max="1000" value="300">
+                        <span id="dialogue-fade-duration-value">300 ms</span>
+                    </div>
+                    <div id="dialogue-lines-list" class="dialogue-lines-list">
+                        <!-- Dialogue lines will be added here dynamically -->
+                    </div>
+                </div>
+
+                <div class="panel-section" id="dialogue-editor-section">
+                    <h3>Edit Dialogue <span id="dialogue-line-number"></span></h3>
                     <div class="property-group">
                         <label>Character Name</label>
                         <input type="text" id="dialogue-character" placeholder="Character">
@@ -191,6 +208,9 @@
                             <input type="checkbox" id="dialogue-visible" checked>
                             Show Dialogue Box
                         </label>
+                    </div>
+                    <div class="property-group">
+                        <button id="btn-delete-dialogue" class="btn-danger">Delete This Line</button>
                     </div>
                 </div>
             </aside>

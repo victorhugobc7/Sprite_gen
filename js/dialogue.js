@@ -4,6 +4,14 @@
 
 export class DialogueSystem {
     constructor() {
+        // Multi-dialogue support
+        this.dialogueLines = [];
+        this.currentLineIndex = 0;
+        this.fadeDuration = 300; // ms for fade transitions
+        this.fadeOpacity = 1; // Current fade opacity (0-1)
+        this.isFading = false;
+        this.fadeTimeout = null;
+        
         this.currentDialogue = {
             character: '',
             text: '',
@@ -22,6 +30,8 @@ export class DialogueSystem {
         this.parsedSegments = []; // Parsed text segments with pauses
         this.currentSegmentIndex = 0;
         this.onTypingUpdate = null; // Callback for typing updates
+        this.onLineComplete = null; // Callback when a line is complete
+        this.onAllLinesComplete = null; // Callback when all lines are done
         
         this.styles = {
             default: {
@@ -49,6 +59,127 @@ export class DialogueSystem {
                 fontStyle: ''
             }
         };
+    }
+
+    /**
+     * Set fade duration for transitions between dialogue lines
+     * @param {number} durationMs - Duration in milliseconds
+     */
+    setFadeDuration(durationMs) {
+        this.fadeDuration = durationMs;
+    }
+
+    /**
+     * Get fade duration
+     * @returns {number} Fade duration in ms
+     */
+    getFadeDuration() {
+        return this.fadeDuration;
+    }
+
+    /**
+     * Get current fade opacity
+     * @returns {number} Opacity value 0-1
+     */
+    getFadeOpacity() {
+        return this.fadeOpacity;
+    }
+
+    /**
+     * Set multiple dialogue lines for a scene
+     * @param {Array} lines - Array of dialogue objects
+     */
+    setDialogueLines(lines) {
+        this.dialogueLines = lines || [];
+        this.currentLineIndex = 0;
+        this.fadeOpacity = 1;
+        this.isFading = false;
+        
+        if (this.dialogueLines.length > 0) {
+            this.setDialogue(this.dialogueLines[0]);
+        }
+    }
+
+    /**
+     * Get all dialogue lines
+     * @returns {Array} Array of dialogue lines
+     */
+    getDialogueLines() {
+        return [...this.dialogueLines];
+    }
+
+    /**
+     * Get current line index
+     * @returns {number} Current line index
+     */
+    getCurrentLineIndex() {
+        return this.currentLineIndex;
+    }
+
+    /**
+     * Advance to next dialogue line with fade transition
+     * @param {Function} onFadeOut - Callback during fade out
+     * @param {Function} onFadeIn - Callback during fade in
+     * @returns {boolean} True if there was a next line
+     */
+    advanceToNextLine(onFadeOut, onFadeIn) {
+        if (this.currentLineIndex >= this.dialogueLines.length - 1) {
+            if (this.onAllLinesComplete) {
+                this.onAllLinesComplete();
+            }
+            return false;
+        }
+        
+        this.isFading = true;
+        
+        // Fade out
+        this.animateFade(1, 0, this.fadeDuration / 2, () => {
+            // Switch to next line
+            this.currentLineIndex++;
+            const nextLine = this.dialogueLines[this.currentLineIndex];
+            this.setDialogue(nextLine);
+            
+            if (onFadeOut) onFadeOut(this.currentDialogue);
+            
+            // Fade in
+            this.animateFade(0, 1, this.fadeDuration / 2, () => {
+                this.isFading = false;
+                if (onFadeIn) onFadeIn(this.currentDialogue);
+            });
+        });
+        
+        return true;
+    }
+
+    /**
+     * Animate fade opacity
+     * @param {number} from - Starting opacity
+     * @param {number} to - Target opacity
+     * @param {number} duration - Duration in ms
+     * @param {Function} onComplete - Callback when complete
+     */
+    animateFade(from, to, duration, onComplete) {
+        const startTime = performance.now();
+        
+        const animate = () => {
+            const elapsed = performance.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            this.fadeOpacity = from + (to - from) * progress;
+            
+            if (this.onTypingUpdate) {
+                this.onTypingUpdate(this.currentDialogue);
+            }
+            
+            if (progress < 1) {
+                this.fadeTimeout = requestAnimationFrame(animate);
+            } else {
+                this.fadeOpacity = to;
+                if (onComplete) onComplete();
+            }
+        };
+        
+        animate();
     }
 
     /**

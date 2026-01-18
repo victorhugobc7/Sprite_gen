@@ -574,6 +574,77 @@ body {
     cursor: pointer;
 }
 
+/* Dialogue Lines List */
+.dialogue-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.dialogue-controls button {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.dialogue-lines-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 150px;
+    overflow-y: auto;
+    background: var(--bg-dark);
+    border-radius: 4px;
+    padding: 0.25rem;
+}
+
+.dialogue-line-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    background: var(--bg-input);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.75rem;
+}
+
+.dialogue-line-item:hover {
+    background: var(--accent);
+}
+
+.dialogue-line-item.active {
+    background: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-hover);
+}
+
+.dialogue-line-item .line-number {
+    font-weight: bold;
+    min-width: 20px;
+}
+
+.dialogue-line-item .line-preview {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.dialogue-line-item .line-character {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.btn-danger {
+    background-color: #dc2626 !important;
+}
+
+.btn-danger:hover {
+    background-color: #ef4444 !important;
+}
+
 /* Utility classes */
 .hidden {
     display: none !important;

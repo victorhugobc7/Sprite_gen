@@ -25,14 +25,25 @@ export class Timeline {
             duration: 3000,
             background: null,
             sprites: [],
-            dialogue: {
+            dialogues: [{
                 character: '',
                 text: '',
                 style: 'default',
-                visible: false
-            },
+                visible: false,
+                boxColor: '#e94560',
+                typingSpeed: 150
+            }],
+            // Legacy single dialogue support (for backwards compatibility)
+            dialogue: null,
+            fadeDuration: 300,
             thumbnail: null
         };
+        
+        // Migrate legacy single dialogue to dialogues array
+        if (scene.dialogue && !scene.dialogues) {
+            scene.dialogues = [scene.dialogue];
+            scene.dialogue = null;
+        }
         
         this.scenes.push(scene);
         this.currentSceneIndex = this.scenes.length - 1;
