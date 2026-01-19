@@ -1,4 +1,4 @@
-# SpriteGen - Visual Novel Cutscene Creator
+# SpriteGen - Visual Cutscene Creator
 
 A web-based tool for creating visual novel-style 1920x1080 scripted sequences with sprite management, dialogue systems, and timeline control.
 
