@@ -31,7 +31,7 @@ export class Timeline {
                 style: 'default',
                 visible: false,
                 boxColor: '#e94560',
-                typingSpeed: 45
+                typingSpeed: 35
             }],
             // Legacy single dialogue support (for backwards compatibility)
             dialogue: null,

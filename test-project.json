@@ -11,7 +11,7 @@
       "dialogues": [
         {
           "character": "Test Character",
-          "text": "This is line 1 of scene 1.[[500]] With a pause!",
+          "text": "This is line 1 of scene 1.[[300]][[500]] With a pause!",
           "style": "default",
           "visible": true,
           "boxColor": "#e94560",
@@ -19,7 +19,7 @@
         },
         {
           "character": "Test Character",
-          "text": "This is line 2 of scene 1. It should auto-advance.",
+          "text": "This is line 2 of scene 1.[[300]] It should auto-advance.[[300]]",
           "style": "default",
           "visible": true,
           "boxColor": "#e94560",
@@ -37,7 +37,7 @@
       "dialogues": [
         {
           "character": "Test Character",
-          "text": "This is scene 2! The sprite should have moved.",
+          "text": "This is scene 2! The sprite should have moved.[[300]]",
           "style": "default",
           "visible": true,
           "boxColor": "#4CAF50",

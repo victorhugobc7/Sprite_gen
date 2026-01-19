@@ -974,7 +974,7 @@ class SpriteGenApp {
             style: 'default',
             visible: true,
             boxColor: '#e94560',
-            typingSpeed: 60
+            typingSpeed: 35
         });
         
         this.selectedDialogueIndex = scene.dialogues.length - 1;
@@ -1110,7 +1110,7 @@ class SpriteGenApp {
         document.getElementById('dialogue-color').value = line.boxColor || '#e94560';
         document.getElementById('dialogue-visible').checked = line.visible !== false;
         
-        const typingSpeed = line.typingSpeed || 45;
+        const typingSpeed = line.typingSpeed || 35;
         document.getElementById('dialogue-typing-speed').value = typingSpeed;
         document.getElementById('dialogue-typing-speed-value').textContent = `${typingSpeed} ms`;
     }
@@ -1187,7 +1187,7 @@ class SpriteGenApp {
                 style: styleIdx !== -1 ? values[styleIdx] || 'default' : 'default',
                 boxColor: colorIdx !== -1 ? values[colorIdx] || '#e94560' : '#e94560',
                 visible: true,
-                typingSpeed: 45
+                typingSpeed: 35
             });
         }
         
@@ -1198,7 +1198,7 @@ class SpriteGenApp {
                 style: 'default',
                 visible: true,
                 boxColor: '#e94560',
-                typingSpeed: 45
+                typingSpeed: 35
             });
         }
         
@@ -1716,7 +1716,7 @@ class SpriteGenApp {
                 style: 'default',
                 visible: false,
                 boxColor: '#e94560',
-                typingSpeed: 45
+                typingSpeed: 35
             }];
             scene.dialogues = dialogues;
         }
@@ -1751,8 +1751,9 @@ class SpriteGenApp {
                     typingDuration += segment.content;
                 }
             }
+            typingDuration += this.dialogueSystem.getLineDisplayDuration();
             
-            // Add time for additional lines (typing + fade transitions)
+            // Add time for additional lines (typing + fade transitions + display duration)
             for (let i = 1; i < dialogues.length; i++) {
                 const line = dialogues[i];
                 if (line.visible && line.text) {
@@ -1760,11 +1761,12 @@ class SpriteGenApp {
                     const lineSegments = this.dialogueSystem.parseTextWithPauses(line.text);
                     for (const segment of lineSegments) {
                         if (segment.type === 'text') {
-                            typingDuration += segment.content.length * (line.typingSpeed || 45);
+                            typingDuration += segment.content.length * (line.typingSpeed || 35);
                         } else if (segment.type === 'pause') {
                             typingDuration += segment.content;
                         }
                     }
+                    typingDuration += this.dialogueSystem.getLineDisplayDuration();
                 }
             }
             
@@ -2327,8 +2329,9 @@ class SpriteGenApp {
             this.updatePreviewCounter();
             this.updateTimelineUI();
             
-            // Wait for typing to finish plus scene duration
-            const totalDuration = Math.max(scene.duration, typingDuration + 500);
+            // Wait for typing to finish, plus half fade duration for final fade-out, plus buffer
+            const fadeDuration = scene.fadeDuration || 300;
+            const totalDuration = Math.max(scene.duration, typingDuration + (fadeDuration / 2) + 500);
             
             if (this.timeline.getCurrentIndex() < this.timeline.getSceneCount() - 1) {
                 this.previewInterval = setTimeout(() => {

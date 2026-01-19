@@ -20,7 +20,7 @@ export class DialogueSystem {
             style: 'default',
             visible: true,
             boxColor: '#e94560', // Default accent color
-            typingSpeed: 50, // ms per character (default middle point)
+            typingSpeed: 35, // ms per character (default)
             displayedText: '', // Currently visible text (for typewriter effect)
             isTyping: false,
             typingComplete: false
@@ -231,7 +231,7 @@ export class DialogueSystem {
             style: 'default',
             visible: true,
             boxColor: '#e94560',
-            typingSpeed: 45,
+            typingSpeed: 35,
             ...cleanDialogue,
             // Force reset these runtime properties
             displayedText: '',
