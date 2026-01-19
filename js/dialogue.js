@@ -8,8 +8,10 @@ export class DialogueSystem {
         this.dialogueLines = [];
         this.currentLineIndex = 0;
         this.fadeDuration = 300; // ms for fade transitions
+        this.lineDisplayDuration = 400; // ms to display line after typing completes
         this.fadeOpacity = 1; // Current fade opacity (0-1)
         this.isFading = false;
+        this.characterChanging = false; // True when fading between different characters
         this.fadeTimeout = null;
         
         this.currentDialogue = {
@@ -78,11 +80,35 @@ export class DialogueSystem {
     }
 
     /**
+     * Set line display duration (time to show text after typing completes)
+     * @param {number} durationMs - Duration in milliseconds
+     */
+    setLineDisplayDuration(durationMs) {
+        this.lineDisplayDuration = durationMs;
+    }
+
+    /**
+     * Get line display duration
+     * @returns {number} Line display duration in ms
+     */
+    getLineDisplayDuration() {
+        return this.lineDisplayDuration;
+    }
+
+    /**
      * Get current fade opacity
      * @returns {number} Opacity value 0-1
      */
     getFadeOpacity() {
         return this.fadeOpacity;
+    }
+
+    /**
+     * Check if character is changing during fade
+     * @returns {boolean} True if switching to a different character
+     */
+    isCharacterChanging() {
+        return this.characterChanging;
     }
 
     /**
@@ -132,11 +158,15 @@ export class DialogueSystem {
         
         this.isFading = true;
         
+        // Check if character is changing
+        const currentCharacter = this.currentDialogue.character;
+        const nextLine = this.dialogueLines[this.currentLineIndex + 1];
+        this.characterChanging = currentCharacter !== nextLine.character;
+        
         // Fade out
         this.animateFade(1, 0, this.fadeDuration / 2, () => {
             // Switch to next line
             this.currentLineIndex++;
-            const nextLine = this.dialogueLines[this.currentLineIndex];
             this.setDialogue(nextLine);
             
             if (onFadeOut) onFadeOut(this.currentDialogue);
@@ -144,6 +174,7 @@ export class DialogueSystem {
             // Fade in
             this.animateFade(0, 1, this.fadeDuration / 2, () => {
                 this.isFading = false;
+                this.characterChanging = false;
                 if (onFadeIn) onFadeIn(this.currentDialogue);
             });
         });
@@ -187,14 +218,27 @@ export class DialogueSystem {
      * @param {Object} dialogue - Dialogue data
      */
     setDialogue(dialogue) {
+        // Stop any ongoing typing first
+        this.stopTyping();
+        
         // Reset typing state when setting new dialogue
+        // IMPORTANT: Exclude runtime properties from the incoming dialogue
+        const { displayedText, isTyping, typingComplete, ...cleanDialogue } = dialogue;
+        
         this.currentDialogue = {
-            ...this.currentDialogue,
-            ...dialogue,
-            displayedText: '', // Always reset displayed text
+            character: '',
+            text: '',
+            style: 'default',
+            visible: true,
+            boxColor: '#e94560',
+            typingSpeed: 45,
+            ...cleanDialogue,
+            // Force reset these runtime properties
+            displayedText: '',
             isTyping: false,
             typingComplete: false
         };
+        
         return this.currentDialogue;
     }
 
@@ -233,6 +277,8 @@ export class DialogueSystem {
      * @returns {Array} Array of segments {type: 'text'|'pause', content: string|number}
      */
     parseTextWithPauses(text) {
+        if (!text) return [];
+        
         const segments = [];
         const regex = /\[\[(\d+)\]\]/g;
         let lastIndex = 0;
@@ -282,6 +328,11 @@ export class DialogueSystem {
         this.currentSegmentIndex = 0;
         this.onTypingUpdate = onUpdate;
         this.onTypingComplete = onComplete;
+        
+        // Immediately notify with cleared text to ensure blank slate
+        if (this.onTypingUpdate) {
+            this.onTypingUpdate(this.currentDialogue);
+        }
         
         // Parse the text into segments
         this.parsedSegments = this.parseTextWithPauses(this.currentDialogue.text);
@@ -413,7 +464,7 @@ export class DialogueSystem {
      * @returns {Object} Current dialogue
      */
     getDialogue() {
-        return { ...this.currentDialogue };
+        return this.currentDialogue;
     }
 
     /**

@@ -268,7 +268,16 @@ body {
 }
 
 .property-group input[type="range"] {
-    width: calc(100% - 50px);
+    width: calc(100% - 60px);
+    vertical-align: middle;
+}
+
+.property-group input[type="range"] + span {
+    display: inline-block;
+    width: 55px;
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
     vertical-align: middle;
 }
 
@@ -325,6 +334,181 @@ body {
     width: 100%;
     padding: 0.75rem;
     margin-bottom: 0.5rem;
+}
+
+.btn-secondary {
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background-color: var(--accent);
+}
+
+.character-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.character-actions .btn-full {
+    margin-bottom: 0;
+}
+
+/* Options section styles */
+.options-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.options-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.options-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.btn-small {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    background-color: var(--bg-input);
+    border: none;
+    border-radius: 4px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-small:hover {
+    background-color: var(--accent);
+}
+
+.btn-small.active {
+    background-color: var(--accent);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.btn-small:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Layers Panel */
+.layers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.layer-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-input);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.layer-item:hover {
+    background-color: rgba(233, 69, 96, 0.3);
+}
+
+.layer-item.selected {
+    background-color: var(--accent);
+}
+
+.layer-item.dragging {
+    opacity: 0.5;
+}
+
+.layer-item.drag-over {
+    border-top: 2px solid var(--accent);
+}
+
+.layer-drag-handle {
+    cursor: grab;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.layer-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.layer-index {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+
+.no-layers, .no-templates {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 1rem;
+}
+
+/* Templates Panel */
+.templates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.template-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-input);
+    border-radius: 4px;
+}
+
+.template-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.template-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.template-actions button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    background-color: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.template-actions button:hover {
+    background-color: var(--accent);
 }
 
 .character-item {
@@ -390,6 +574,12 @@ body {
     background-color: var(--bg-input);
     border-radius: 4px;
     margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.sprite-item:hover {
+    background-color: rgba(233, 69, 96, 0.3);
 }
 
 .sprite-item img {
@@ -398,6 +588,7 @@ body {
     object-fit: contain;
     background-color: var(--bg-dark);
     border-radius: 4px;
+    cursor: pointer;
 }
 
 .sprite-item .sprite-name {
@@ -409,6 +600,26 @@ body {
     width: 100px;
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.sprite-item .sprite-add {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 1rem;
+    font-weight: bold;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.sprite-item .sprite-add:hover {
+    opacity: 1;
 }
 
 .sprite-item .sprite-delete {
@@ -487,12 +698,15 @@ body {
     background-color: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .timeline-controls {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    flex-shrink: 0;
 }
 
 .timeline-track {
@@ -500,6 +714,30 @@ body {
     gap: 0.5rem;
     overflow-x: auto;
     padding: 0.5rem 0;
+    flex: 1;
+}
+
+.timeline-preview-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.timeline-preview-controls button {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeline-preview-controls #preview-counter {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    min-width: 50px;
+    text-align: center;
 }
 
 .timeline-scene {

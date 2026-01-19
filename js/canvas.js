@@ -64,9 +64,44 @@ export class CanvasEngine {
         this.breathingSpeed = 0.8; // Cycles per second
         this.lastFrameTime = performance.now();
         
+        // Grid settings
+        this.gridEnabled = false;
+        this.snapToGrid = false;
+        this.gridSize = 50;
+        
         this.setupEventListeners();
         this.updateCanvasSize();
         this.startAnimationLoop();
+    }
+
+    /**
+     * Set grid enabled state
+     * @param {boolean} enabled - Whether grid is visible
+     * @param {number} size - Grid cell size
+     */
+    setGridEnabled(enabled, size = 50) {
+        this.gridEnabled = enabled;
+        this.gridSize = size;
+    }
+
+    /**
+     * Set snap to grid state
+     * @param {boolean} enabled - Whether to snap to grid
+     * @param {number} size - Grid cell size
+     */
+    setSnapToGrid(enabled, size = 50) {
+        this.snapToGrid = enabled;
+        this.gridSize = size;
+    }
+
+    /**
+     * Snap a value to grid
+     * @param {number} value - Value to snap
+     * @returns {number} Snapped value
+     */
+    snapValueToGrid(value) {
+        if (!this.snapToGrid) return value;
+        return Math.round(value / this.gridSize) * this.gridSize;
     }
 
     /**
@@ -492,8 +527,17 @@ export class CanvasEngine {
         }
         
         if (this.isDragging && this.selectedSprite) {
-            this.selectedSprite.x = pos.x - this.dragOffset.x;
-            this.selectedSprite.y = pos.y - this.dragOffset.y;
+            let newX = pos.x - this.dragOffset.x;
+            let newY = pos.y - this.dragOffset.y;
+            
+            // Snap to grid if enabled
+            if (this.snapToGrid) {
+                newX = this.snapValueToGrid(newX);
+                newY = this.snapValueToGrid(newY);
+            }
+            
+            this.selectedSprite.x = newX;
+            this.selectedSprite.y = newY;
             
             this.render();
             
@@ -651,6 +695,14 @@ export class CanvasEngine {
     }
 
     /**
+     * Set whether character name should fade (only when switching characters)
+     * @param {boolean} changing - True if character is changing
+     */
+    setCharacterChanging(changing) {
+        this.characterChanging = changing;
+    }
+
+    /**
      * Clear the canvas
      */
     clear() {
@@ -666,6 +718,11 @@ export class CanvasEngine {
         
         // Draw background with transition support
         this.drawBackgroundWithTransition();
+        
+        // Draw grid (behind sprites)
+        if (this.gridEnabled) {
+            this.drawGrid();
+        }
         
         // Draw sprites
         for (const sprite of this.sprites) {
@@ -686,6 +743,49 @@ export class CanvasEngine {
         if (this.isTransitioning) {
             this.drawSceneTransition();
         }
+    }
+
+    /**
+     * Draw alignment grid
+     */
+    drawGrid() {
+        this.ctx.save();
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        this.ctx.lineWidth = 1;
+        
+        // Vertical lines
+        for (let x = 0; x <= this.width; x += this.gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.height);
+            this.ctx.stroke();
+        }
+        
+        // Horizontal lines
+        for (let y = 0; y <= this.height; y += this.gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.width, y);
+            this.ctx.stroke();
+        }
+        
+        // Draw center lines in a different color
+        this.ctx.strokeStyle = 'rgba(233, 69, 96, 0.3)';
+        this.ctx.lineWidth = 2;
+        
+        // Vertical center
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.width / 2, 0);
+        this.ctx.lineTo(this.width / 2, this.height);
+        this.ctx.stroke();
+        
+        // Horizontal center
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.height / 2);
+        this.ctx.lineTo(this.width, this.height / 2);
+        this.ctx.stroke();
+        
+        this.ctx.restore();
     }
 
     /**
@@ -884,15 +984,15 @@ export class CanvasEngine {
         // Get box color (default to accent if not set)
         const boxColor = dialogue.boxColor || '#e94560';
         
-        // Get fade opacity (default to 1)
-        const fadeOpacity = this.dialogueFadeOpacity !== undefined ? this.dialogueFadeOpacity : 1;
+        // Get fade opacity for text only (default to 1)
+        const textFadeOpacity = this.dialogueFadeOpacity !== undefined ? this.dialogueFadeOpacity : 1;
+        
+        // Check if character is changing (only fade name when switching characters)
+        const characterChanging = this.characterChanging || false;
         
         this.ctx.save();
         
-        // Apply global alpha for fade effect
-        this.ctx.globalAlpha = fadeOpacity;
-        
-        // Draw box background with slight transparency
+        // Draw box background with slight transparency (NO fade - box stays visible)
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         this.ctx.beginPath();
         this.ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 10);
@@ -909,12 +1009,16 @@ export class CanvasEngine {
         this.ctx.roundRect(boxX, boxY, boxWidth, 6, [10, 10, 0, 0]);
         this.ctx.fill();
         
-        // Draw character name with box color
+        // Draw character name - only fade if character is changing
         if (dialogue.character) {
+            this.ctx.globalAlpha = characterChanging ? textFadeOpacity : 1;
             this.ctx.fillStyle = boxColor;
             this.ctx.font = 'bold 38px Calamity, "Segoe UI", sans-serif';
             this.ctx.fillText(dialogue.character, boxX + padding, boxY + padding + 32);
         }
+        
+        // Apply fade opacity for dialogue text
+        this.ctx.globalAlpha = textFadeOpacity;
         
         // Draw dialogue text (use displayedText for typewriter effect, fallback to clean text)
         const textToShow = dialogue.displayedText !== undefined && dialogue.displayedText !== null

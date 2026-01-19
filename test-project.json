@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "type": "spritegen-project",
+  "scenes": [
+    {
+      "id": "scene1",
+      "name": "Scene 1 - Left Position",
+      "duration": 3000,
+      "background": null,
+      "sprites": [],
+      "dialogues": [
+        {
+          "character": "Test Character",
+          "text": "This is line 1 of scene 1.[[500]] With a pause!",
+          "style": "default",
+          "visible": true,
+          "boxColor": "#e94560",
+          "typingSpeed": 45
+        },
+        {
+          "character": "Test Character",
+          "text": "This is line 2 of scene 1. It should auto-advance.",
+          "style": "default",
+          "visible": true,
+          "boxColor": "#e94560",
+          "typingSpeed": 45
+        }
+      ],
+      "fadeDuration": 300
+    },
+    {
+      "id": "scene2",
+      "name": "Scene 2 - Right Position",
+      "duration": 3000,
+      "background": null,
+      "sprites": [],
+      "dialogues": [
+        {
+          "character": "Test Character",
+          "text": "This is scene 2! The sprite should have moved.",
+          "style": "default",
+          "visible": true,
+          "boxColor": "#4CAF50",
+          "typingSpeed": 45
+        }
+      ],
+      "fadeDuration": 300
+    }
+  ],
+  "characters": [],
+  "backgrounds": []
+}

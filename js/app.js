@@ -7,6 +7,7 @@ import { SpriteManager } from './sprite.js';
 import { DialogueSystem } from './dialogue.js';
 import { Timeline } from './timeline.js';
 import { AudioManager } from './audio.js';
+import { HistoryManager } from './history.js';
 import { downloadFile, downloadCanvas, debounce } from './utils.js';
 
 class SpriteGenApp {
@@ -16,6 +17,15 @@ class SpriteGenApp {
         this.dialogueSystem = new DialogueSystem();
         this.timeline = new Timeline();
         this.audioManager = new AudioManager();
+        this.history = new HistoryManager(50);
+        
+        // Grid settings
+        this.gridEnabled = false;
+        this.snapToGrid = false;
+        this.gridSize = 50;
+        
+        // Scene templates
+        this.sceneTemplates = this.loadTemplatesFromStorage();
         
         this.previewMode = false;
         this.previewInterval = null;
@@ -40,8 +50,11 @@ class SpriteGenApp {
      */
     init() {
         this.bindEventListeners();
+        this.setupKeyboardShortcuts();
+        this.setupHistoryCallbacks();
         this.loadInitialScene();
         this.updateTimelineUI();
+        this.updateLayersPanel();
     }
 
     /**
@@ -56,7 +69,7 @@ class SpriteGenApp {
         document.getElementById('btn-save').addEventListener('click', () => this.saveProject());
         document.getElementById('btn-load').addEventListener('click', () => this.loadProjectDialog());
         document.getElementById('btn-export').addEventListener('click', () => this.exportSequence());
-        document.getElementById('btn-preview').addEventListener('click', () => this.openPreview());
+        document.getElementById('btn-preview').addEventListener('click', () => this.togglePreview());
 
         // Sprite import
         this.setupDropZone('sprite-drop-zone', 'sprite-input', (files) => this.importSprites(files));
@@ -66,6 +79,33 @@ class SpriteGenApp {
 
         // Character management
         document.getElementById('btn-new-character').addEventListener('click', () => this.createNewCharacter());
+        
+        document.getElementById('btn-export-character').addEventListener('click', () => this.exportCharacter());
+        
+        document.getElementById('btn-import-character').addEventListener('click', () => {
+            document.getElementById('character-import-input').click();
+        });
+        
+        document.getElementById('character-import-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.importCharacter(e.target.files[0]);
+                e.target.value = '';
+            }
+        });
+
+        // Undo/Redo buttons
+        document.getElementById('btn-undo').addEventListener('click', () => this.undo());
+        document.getElementById('btn-redo').addEventListener('click', () => this.redo());
+
+        // Grid controls
+        document.getElementById('btn-toggle-grid').addEventListener('click', () => this.toggleGrid());
+        document.getElementById('btn-snap-grid').addEventListener('click', () => this.toggleSnapToGrid());
+        document.getElementById('grid-size').addEventListener('change', (e) => {
+            this.setGridSize(parseInt(e.target.value) || 50);
+        });
+
+        // Templates
+        document.getElementById('btn-save-template').addEventListener('click', () => this.saveAsTemplate());
 
         // Project file input
         document.getElementById('project-input').addEventListener('change', (e) => {
@@ -126,9 +166,8 @@ class SpriteGenApp {
         document.getElementById('btn-duplicate-scene').addEventListener('click', () => this.duplicateScene());
         document.getElementById('btn-delete-scene').addEventListener('click', () => this.deleteScene());
 
-        // Preview controls
-        document.getElementById('preview-close').addEventListener('click', () => this.closePreview());
-        document.getElementById('preview-play').addEventListener('click', () => this.togglePreviewPlayback());
+        // Preview controls (inline on timeline)
+        document.getElementById('preview-play').addEventListener('click', () => this.togglePreview());
         document.getElementById('preview-prev').addEventListener('click', () => this.previewPrevScene());
         document.getElementById('preview-next').addEventListener('click', () => this.previewNextScene());
 
@@ -434,6 +473,9 @@ class SpriteGenApp {
         // Insert before the "New Character" button
         const btn = document.getElementById('btn-new-character');
         list.insertBefore(item, btn);
+        
+        // Update the character dropdown in dialogue editor
+        this.updateCharacterDropdown(document.getElementById('dialogue-character').value);
     }
 
     /**
@@ -464,7 +506,152 @@ class SpriteGenApp {
             document.getElementById('character-sprites-section').style.display = 'none';
         }
         
+        // Update the character dropdown in dialogue editor
+        this.updateCharacterDropdown(document.getElementById('dialogue-character').value);
+        
         this.saveCurrentSceneState();
+    }
+
+    /**
+     * Export the currently selected character to a JSON file
+     */
+    async exportCharacter() {
+        if (!this.selectedCharacterId) {
+            alert('No character selected');
+            return;
+        }
+        
+        const character = this.spriteManager.getCharacter(this.selectedCharacterId);
+        if (!character) return;
+        
+        // Build export data with sprites embedded as base64
+        const exportData = {
+            version: '1.0',
+            type: 'spritegen-character',
+            character: {
+                name: character.name,
+                boxColor: character.boxColor,
+                activeVariant: character.activeVariant,
+                sprites: []
+            }
+        };
+        
+        // Export each sprite variant
+        for (const spriteId of character.variants) {
+            const sprite = this.spriteManager.getSprite(spriteId);
+            if (sprite) {
+                // Convert processed image to base64
+                const canvas = document.createElement('canvas');
+                canvas.width = sprite.image.width;
+                canvas.height = sprite.image.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(sprite.image, 0, 0);
+                const imageData = canvas.toDataURL('image/png');
+                
+                exportData.character.sprites.push({
+                    name: sprite.name,
+                    x: sprite.x,
+                    y: sprite.y,
+                    scale: sprite.scale,
+                    opacity: sprite.opacity,
+                    removeBackground: sprite.removeBackground,
+                    imageData: imageData
+                });
+            }
+        }
+        
+        // Download the file
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${character.name}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Import a character from a JSON file
+     * @param {File} file - The character JSON file
+     */
+    async importCharacter(file) {
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (data.type !== 'spritegen-character') {
+                alert('Invalid character file');
+                return;
+            }
+            
+            const charData = data.character;
+            
+            // Create sprites from the imported data
+            const spriteIds = [];
+            for (let i = 0; i < charData.sprites.length; i++) {
+                const spriteData = charData.sprites[i];
+                
+                // Load image from base64
+                const img = await this.loadImageFromDataUrl(spriteData.imageData);
+                
+                const sprite = {
+                    id: this.spriteManager.generateCharacterId(),
+                    name: spriteData.name,
+                    originalImage: img,
+                    image: img,
+                    x: spriteData.x,
+                    y: spriteData.y,
+                    scale: spriteData.scale,
+                    opacity: spriteData.opacity,
+                    removeBackground: spriteData.removeBackground,
+                    dominantColor: this.spriteManager.extractDominantColor(img),
+                    characterId: null,
+                    variantIndex: i
+                };
+                
+                this.spriteManager.sprites.set(sprite.id, sprite);
+                spriteIds.push(sprite.id);
+            }
+            
+            // Create the character
+            const character = {
+                id: this.spriteManager.generateCharacterId(),
+                name: charData.name,
+                variants: spriteIds,
+                activeVariant: charData.activeVariant || 0,
+                boxColor: charData.boxColor || '#e94560'
+            };
+            
+            // Link sprites to character
+            for (const spriteId of spriteIds) {
+                const sprite = this.spriteManager.getSprite(spriteId);
+                if (sprite) {
+                    sprite.characterId = character.id;
+                }
+            }
+            
+            this.spriteManager.characters.set(character.id, character);
+            this.addCharacterToList(character);
+            this.selectCharacter(character.id);
+            
+        } catch (error) {
+            console.error('Failed to import character:', error);
+            alert('Failed to import character: ' + error.message);
+        }
+    }
+
+    /**
+     * Load an image from a data URL
+     * @param {string} dataUrl - Base64 image data
+     * @returns {Promise<HTMLImageElement>}
+     */
+    loadImageFromDataUrl(dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = dataUrl;
+        });
     }
 
     /**
@@ -513,6 +700,7 @@ class SpriteGenApp {
         item.innerHTML = `
             <img src="${thumbnail}" alt="${sprite.name}">
             <input type="text" value="${sprite.name}" placeholder="Variant name">
+            <button class="sprite-add" title="Add to scene">+</button>
             <button class="sprite-delete" title="Delete">✕</button>
         `;
         
@@ -521,17 +709,27 @@ class SpriteGenApp {
             sprite.name = e.target.value;
         }, 300));
         
+        // Prevent input clicks from adding to scene
+        item.querySelector('input').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        // Add button
+        item.querySelector('.sprite-add').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.addSpriteToScene(sprite.id);
+        });
+        
         // Delete button
         item.querySelector('.sprite-delete').addEventListener('click', (e) => {
             e.stopPropagation();
             this.deleteSprite(sprite.id);
         });
         
-        // Click to add to scene
-        item.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('sprite-delete')) {
-                this.addSpriteToScene(sprite.id);
-            }
+        // Click on image to add to scene
+        item.querySelector('img').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.addSpriteToScene(sprite.id);
         });
         
         // Insert before drop zone
@@ -668,9 +866,30 @@ class SpriteGenApp {
             this.saveCurrentSceneState();
         });
 
-        document.getElementById('dialogue-character').addEventListener('input', debounce((e) => {
-            this.updateCurrentDialogueLine({ character: e.target.value });
-        }, 100));
+        // Line display duration (time to show text after typing completes)
+        document.getElementById('line-display-duration').addEventListener('input', (e) => {
+            const duration = parseInt(e.target.value);
+            document.getElementById('line-display-duration-value').textContent = `${duration} ms`;
+            this.dialogueSystem.setLineDisplayDuration(duration);
+            this.saveCurrentSceneState();
+        });
+
+        document.getElementById('dialogue-character').addEventListener('change', (e) => {
+            const characterName = e.target.value;
+            const updates = { character: characterName };
+            
+            // If a character is selected, use their box color
+            if (characterName) {
+                const characters = this.spriteManager.getAllCharacters();
+                const character = characters.find(c => c.name === characterName);
+                if (character && character.boxColor) {
+                    updates.boxColor = character.boxColor;
+                    document.getElementById('dialogue-color').value = character.boxColor;
+                }
+            }
+            
+            this.updateCurrentDialogueLine(updates);
+        });
 
         document.getElementById('dialogue-text').addEventListener('input', debounce((e) => {
             this.updateCurrentDialogueLine({ text: e.target.value });
@@ -715,11 +934,17 @@ class SpriteGenApp {
         const scene = this.timeline.getCurrentScene();
         if (!scene || !scene.dialogues || scene.dialogues.length === 0) return;
         
-        // Update the current dialogue line
+        // Update the current dialogue line (exclude runtime properties)
+        const { displayedText, isTyping, typingComplete, ...cleanUpdates } = updates;
         scene.dialogues[this.selectedDialogueIndex] = {
             ...scene.dialogues[this.selectedDialogueIndex],
-            ...updates
+            ...cleanUpdates
         };
+        
+        // Also remove any runtime properties from stored dialogue
+        delete scene.dialogues[this.selectedDialogueIndex].displayedText;
+        delete scene.dialogues[this.selectedDialogueIndex].isTyping;
+        delete scene.dialogues[this.selectedDialogueIndex].typingComplete;
         
         // Update the dialogue system with current line
         const currentLine = scene.dialogues[this.selectedDialogueIndex];
@@ -749,7 +974,7 @@ class SpriteGenApp {
             style: 'default',
             visible: true,
             boxColor: '#e94560',
-            typingSpeed: 150
+            typingSpeed: 60
         });
         
         this.selectedDialogueIndex = scene.dialogues.length - 1;
@@ -777,6 +1002,41 @@ class SpriteGenApp {
         this.updateDialogueLinesListUI();
         this.selectDialogueLine(this.selectedDialogueIndex);
         this.saveCurrentSceneState();
+    }
+
+    /**
+     * Advance to next dialogue line during playback
+     */
+    advanceDialogueLine() {
+        if (!this.previewPlaying) return;
+        
+        const hasNext = this.dialogueSystem.advanceToNextLine(
+            // onFadeOut - dialogue faded out, new line set
+            (dialogue) => {
+                this.canvas.setCharacterChanging(this.dialogueSystem.isCharacterChanging());
+                this.canvas.setDialogueFadeOpacity(this.dialogueSystem.getFadeOpacity());
+                this.canvas.setDialogue(dialogue);
+            },
+            // onFadeIn - new line faded in, start typing
+            (dialogue) => {
+                this.canvas.setCharacterChanging(false); // Reset after fade complete
+                this.canvas.setDialogueFadeOpacity(this.dialogueSystem.getFadeOpacity());
+                this.dialogueSystem.startTyping(
+                    (updatedDialogue) => {
+                        this.canvas.setDialogueFadeOpacity(this.dialogueSystem.getFadeOpacity());
+                        this.canvas.setDialogue(updatedDialogue);
+                    },
+                    () => {
+                        // Wait for display duration, then advance to next line
+                        setTimeout(() => {
+                            this.advanceDialogueLine();
+                        }, this.dialogueSystem.getLineDisplayDuration());
+                    }
+                );
+            }
+        );
+        
+        // If no more lines, the scene duration timer will handle moving to next scene
     }
 
     /**
@@ -841,15 +1101,49 @@ class SpriteGenApp {
      */
     updateDialogueEditorUI(line) {
         if (!line) return;
-        document.getElementById('dialogue-character').value = line.character || '';
+        
+        // Update character dropdown
+        this.updateCharacterDropdown(line.character || '');
+        
         document.getElementById('dialogue-text').value = line.text || '';
         document.getElementById('dialogue-style').value = line.style || 'default';
         document.getElementById('dialogue-color').value = line.boxColor || '#e94560';
         document.getElementById('dialogue-visible').checked = line.visible !== false;
         
-        const typingSpeed = line.typingSpeed || 150;
+        const typingSpeed = line.typingSpeed || 45;
         document.getElementById('dialogue-typing-speed').value = typingSpeed;
         document.getElementById('dialogue-typing-speed-value').textContent = `${typingSpeed} ms`;
+    }
+
+    /**
+     * Update character dropdown with available characters
+     * @param {string} selectedValue - Currently selected character name
+     */
+    updateCharacterDropdown(selectedValue = '') {
+        const select = document.getElementById('dialogue-character');
+        const characters = this.spriteManager.getAllCharacters();
+        
+        // Clear and rebuild options
+        select.innerHTML = '<option value="">(None)</option>';
+        
+        for (const character of characters) {
+            const option = document.createElement('option');
+            option.value = character.name;
+            option.textContent = character.name;
+            if (character.name === selectedValue) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        }
+        
+        // If selected value wasn't in the list (custom name), add it
+        if (selectedValue && !characters.find(c => c.name === selectedValue)) {
+            const option = document.createElement('option');
+            option.value = selectedValue;
+            option.textContent = selectedValue;
+            option.selected = true;
+            select.appendChild(option);
+        }
     }
 
     /**
@@ -893,7 +1187,7 @@ class SpriteGenApp {
                 style: styleIdx !== -1 ? values[styleIdx] || 'default' : 'default',
                 boxColor: colorIdx !== -1 ? values[colorIdx] || '#e94560' : '#e94560',
                 visible: true,
-                typingSpeed: 150
+                typingSpeed: 45
             });
         }
         
@@ -904,7 +1198,7 @@ class SpriteGenApp {
                 style: 'default',
                 visible: true,
                 boxColor: '#e94560',
-                typingSpeed: 150
+                typingSpeed: 45
             });
         }
         
@@ -1011,6 +1305,7 @@ class SpriteGenApp {
 
     /**
      * Import sprite files (adds to selected character)
+     * Supports auto-naming: if files share a common prefix, they're numbered as variants
      */
     async importSprites(files) {
         if (!this.selectedCharacterId) {
@@ -1018,15 +1313,60 @@ class SpriteGenApp {
             return;
         }
         
-        for (const file of files) {
+        const character = this.spriteManager.getCharacter(this.selectedCharacterId);
+        const existingCount = character ? character.variants.length : 0;
+        
+        // Sort files by name for consistent ordering
+        const sortedFiles = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Find common prefix if importing multiple files
+        let commonPrefix = '';
+        if (sortedFiles.length > 1) {
+            const names = sortedFiles.map(f => f.name.replace(/\.[^/.]+$/, '')); // Remove extensions
+            commonPrefix = this.findCommonPrefix(names);
+        }
+        
+        let variantIndex = existingCount;
+        for (const file of sortedFiles) {
             if (!file.type.startsWith('image/')) continue;
 
             const sprite = await this.spriteManager.importSprite(file, true, this.selectedCharacterId);
+            
+            // Auto-name variants if there's a common prefix
+            if (commonPrefix && sortedFiles.length > 1) {
+                const baseName = file.name.replace(/\.[^/.]+$/, '');
+                const suffix = baseName.replace(commonPrefix, '').trim() || `Variant ${variantIndex + 1}`;
+                sprite.name = suffix;
+            }
+            
+            variantIndex++;
             
             // Add to character's sprite list UI
             this.addSpriteToCharacterList(sprite);
             this.updateCharacterListCount();
         }
+    }
+
+    /**
+     * Find common prefix among an array of strings
+     * @param {string[]} strings - Array of strings
+     * @returns {string} Common prefix
+     */
+    findCommonPrefix(strings) {
+        if (strings.length === 0) return '';
+        if (strings.length === 1) return strings[0];
+        
+        let prefix = strings[0];
+        for (let i = 1; i < strings.length; i++) {
+            while (strings[i].indexOf(prefix) !== 0) {
+                prefix = prefix.slice(0, -1);
+                if (prefix === '') return '';
+            }
+        }
+        
+        // Remove trailing numbers/underscores/hyphens from prefix
+        prefix = prefix.replace(/[-_\s\d]+$/, '');
+        return prefix;
     }
 
     /**
@@ -1097,7 +1437,6 @@ class SpriteGenApp {
             x: 1424 + Math.random() * 100 - 50,
             y: 688 + Math.random() * 50 - 25
         };
-
         this.canvas.addSprite(sceneSprite);
         
         // Auto-set dialogue color from first sprite's dominant color
@@ -1107,6 +1446,7 @@ class SpriteGenApp {
             this.canvas.setDialogue(dialogue);
         }
         
+        this.updateLayersPanel();
         this.saveCurrentSceneState();
     }
 
@@ -1115,6 +1455,7 @@ class SpriteGenApp {
      */
     removeSpriteFromScene(spriteId) {
         this.canvas.removeSprite(spriteId);
+        this.updateLayersPanel();
         this.saveCurrentSceneState();
         document.getElementById('sprite-properties').style.display = 'none';
     }
@@ -1241,6 +1582,7 @@ class SpriteGenApp {
         // Save dialogues array (multi-line support)
         // scene.dialogues is already being updated directly in updateCurrentDialogueLine
         scene.fadeDuration = this.dialogueSystem.getFadeDuration();
+        scene.lineDisplayDuration = this.dialogueSystem.getLineDisplayDuration();
         
         // Update thumbnail
         this.updateSceneThumbnail(scene.id);
@@ -1253,6 +1595,7 @@ class SpriteGenApp {
         const scene = this.timeline.getCurrentScene();
         this.loadSceneToCanvas(scene);
         this.updateScenePropertiesUI(scene);
+        this.updatePreviewCounter();
     }
 
     /**
@@ -1278,6 +1621,7 @@ class SpriteGenApp {
         this.canvas.sprites = [];
         this.canvas.selectedSprite = null;
         this.canvas.background = null;
+        this.canvas.dialogue = null; // Clear dialogue to prevent showing old text
         this.dialogueSystem.stopTyping();
 
         // Load background if set
@@ -1303,7 +1647,15 @@ class SpriteGenApp {
         for (const spriteData of scene.sprites) {
             const sprite = this.spriteManager.getSprite(spriteData.id);
             if (sprite) {
-                const prevSprite = previousSprites.find(s => s.id === spriteData.id);
+                // Match by characterId first (for different variants of same character), 
+                // then fall back to sprite id
+                let prevSprite = null;
+                if (sprite.characterId) {
+                    prevSprite = previousSprites.find(s => s.characterId === sprite.characterId);
+                }
+                if (!prevSprite) {
+                    prevSprite = previousSprites.find(s => s.id === spriteData.id);
+                }
                 
                 const sceneSprite = {
                     ...sprite,
@@ -1321,6 +1673,10 @@ class SpriteGenApp {
                         // Start sprite at previous position, animate to new position
                         sceneSprite.x = prevSprite.x;
                         sceneSprite.y = prevSprite.y;
+                        
+                        // Add sprite to array FIRST, then trigger animation
+                        this.canvas.sprites.push(sceneSprite);
+                        
                         this.canvas.triggerPositionAnimation(
                             sceneSprite.id,
                             prevSprite.x,
@@ -1330,10 +1686,13 @@ class SpriteGenApp {
                         );
                         // Also trigger squish/stretch when arriving
                         this.canvas.triggerSpriteAnimation(sceneSprite.id);
+                        continue; // Already added, skip to next sprite
                     }
                 } else if (triggerAnimations && !prevSprite) {
-                    // New sprite appearing - just trigger squish/stretch
+                    // New sprite appearing - add first, then trigger squish/stretch
+                    this.canvas.sprites.push(sceneSprite);
                     this.canvas.triggerSpriteAnimation(sceneSprite.id);
+                    continue;
                 }
                 
                 this.canvas.sprites.push(sceneSprite);
@@ -1357,7 +1716,7 @@ class SpriteGenApp {
                 style: 'default',
                 visible: false,
                 boxColor: '#e94560',
-                typingSpeed: 150
+                typingSpeed: 45
             }];
             scene.dialogues = dialogues;
         }
@@ -1367,10 +1726,16 @@ class SpriteGenApp {
             this.dialogueSystem.setFadeDuration(scene.fadeDuration);
         }
         
+        // Clean runtime properties from dialogues before passing to system
+        const cleanDialogues = dialogues.map(d => {
+            const { displayedText, isTyping, typingComplete, ...clean } = d;
+            return clean;
+        });
+        
         // Reset to first dialogue line
         this.selectedDialogueIndex = 0;
         
-        this.dialogueSystem.setDialogueLines(dialogues);
+        this.dialogueSystem.setDialogueLines(cleanDialogues);
         const dialogue = this.dialogueSystem.getDialogue();
         
         // Calculate typing duration for all dialogue lines
@@ -1395,7 +1760,7 @@ class SpriteGenApp {
                     const lineSegments = this.dialogueSystem.parseTextWithPauses(line.text);
                     for (const segment of lineSegments) {
                         if (segment.type === 'text') {
-                            typingDuration += segment.content.length * (line.typingSpeed || 150);
+                            typingDuration += segment.content.length * (line.typingSpeed || 45);
                         } else if (segment.type === 'pause') {
                             typingDuration += segment.content;
                         }
@@ -1413,7 +1778,10 @@ class SpriteGenApp {
                     this.canvas.setDialogue(updatedDialogue);
                 },
                 () => {
-                    // Typing complete for current line
+                    // Typing complete for current line - wait then advance to next
+                    setTimeout(() => {
+                        this.advanceDialogueLine();
+                    }, this.dialogueSystem.getLineDisplayDuration());
                 }
             );
         } else {
@@ -1422,7 +1790,11 @@ class SpriteGenApp {
             this.canvas.setDialogue(dialogue);
         }
         
-        this.updateDialogueUI(scene);
+        // Skip dialogue selection during playback to avoid stopping typing animation
+        this.updateDialogueUI(scene, startTyping);
+        
+        // Update layers panel
+        this.updateLayersPanel();
         
         // Start scene transition if enabled
         if (triggerAnimations && this.canvas.sceneTransitionStyle !== 'none' && previousSprites.length > 0) {
@@ -1446,7 +1818,7 @@ class SpriteGenApp {
     /**
      * Update dialogue UI from scene data
      */
-    updateDialogueUI(scene) {
+    updateDialogueUI(scene, skipDialogueSelect = false) {
         if (!scene) return;
         
         // Update fade duration
@@ -1454,13 +1826,21 @@ class SpriteGenApp {
         document.getElementById('dialogue-fade-duration').value = fadeDuration;
         document.getElementById('dialogue-fade-duration-value').textContent = `${fadeDuration} ms`;
         
+        // Update line display duration
+        const lineDisplayDuration = scene.lineDisplayDuration || 400;
+        document.getElementById('line-display-duration').value = lineDisplayDuration;
+        document.getElementById('line-display-duration-value').textContent = `${lineDisplayDuration} ms`;
+        this.dialogueSystem.setLineDisplayDuration(lineDisplayDuration);
+        
         // Update dialogue lines list
         this.updateDialogueLinesListUI();
         
-        // Select first line if available
-        const dialogues = scene.dialogues || [];
-        if (dialogues.length > 0) {
-            this.selectDialogueLine(this.selectedDialogueIndex);
+        // Select first line if available (but skip during playback to avoid stopping typing)
+        if (!skipDialogueSelect) {
+            const dialogues = scene.dialogues || [];
+            if (dialogues.length > 0) {
+                this.selectDialogueLine(this.selectedDialogueIndex);
+            }
         }
     }
 
@@ -1894,67 +2274,22 @@ class SpriteGenApp {
     }
 
     /**
-     * Open preview modal
+     * Start/toggle preview playback (plays on main canvas)
      */
-    openPreview() {
+    togglePreview() {
         this.saveCurrentSceneState();
         
-        const modal = document.getElementById('preview-modal');
-        modal.style.display = 'flex';
-        
-        this.previewMode = true;
-        this.startPreviewAnimation();
-        this.updatePreview();
+        if (this.previewPlaying) {
+            this.stopPreviewPlayback();
+        } else {
+            this.startPreviewPlayback();
+        }
     }
 
     /**
-     * Close preview modal
+     * Update preview counter display
      */
-    closePreview() {
-        const modal = document.getElementById('preview-modal');
-        modal.style.display = 'none';
-        
-        this.previewMode = false;
-        this.stopPreviewPlayback();
-        this.stopPreviewAnimation();
-    }
-
-    /**
-     * Start preview animation loop
-     */
-    startPreviewAnimation() {
-        const previewCanvas = document.getElementById('preview-canvas');
-        const ctx = previewCanvas.getContext('2d');
-        
-        const animate = () => {
-            if (!this.previewMode) return;
-            
-            // Copy main canvas to preview
-            ctx.drawImage(this.canvas.canvas, 0, 0);
-            
-            requestAnimationFrame(animate);
-        };
-        requestAnimationFrame(animate);
-    }
-
-    /**
-     * Stop preview animation loop
-     */
-    stopPreviewAnimation() {
-        // Animation stops when previewMode is set to false
-    }
-
-    /**
-     * Update preview canvas
-     */
-    updatePreview() {
-        const previewCanvas = document.getElementById('preview-canvas');
-        const ctx = previewCanvas.getContext('2d');
-        
-        // Copy main canvas to preview
-        ctx.drawImage(this.canvas.canvas, 0, 0);
-        
-        // Update counter
+    updatePreviewCounter() {
         const current = this.timeline.getCurrentIndex() + 1;
         const total = this.timeline.getSceneCount();
         document.getElementById('preview-counter').textContent = `${current} / ${total}`;
@@ -1989,7 +2324,8 @@ class SpriteGenApp {
         
         const scene = this.timeline.getCurrentScene();
         this.loadSceneToCanvas(scene, true, true).then(({ typingDuration }) => {
-            this.updatePreview();
+            this.updatePreviewCounter();
+            this.updateTimelineUI();
             
             // Wait for typing to finish plus scene duration
             const totalDuration = Math.max(scene.duration, typingDuration + 500);
@@ -2028,7 +2364,10 @@ class SpriteGenApp {
         this.stopPreviewPlayback();
         const scene = this.timeline.previousScene();
         if (scene) {
-            this.loadSceneToCanvas(scene, true).then(() => this.updatePreview());
+            this.loadSceneToCanvas(scene, true).then(() => {
+                this.updatePreviewCounter();
+                this.updateTimelineUI();
+            });
         }
     }
 
@@ -2039,8 +2378,529 @@ class SpriteGenApp {
         this.stopPreviewPlayback();
         const scene = this.timeline.nextScene();
         if (scene) {
-            this.loadSceneToCanvas(scene, true).then(() => this.updatePreview());
+            this.loadSceneToCanvas(scene, true).then(() => {
+                this.updatePreviewCounter();
+                this.updateTimelineUI();
+            });
         }
+    }
+
+    // ==================== KEYBOARD SHORTCUTS ====================
+
+    /**
+     * Setup global keyboard shortcuts
+     */
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger shortcuts when typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                return;
+            }
+
+            // Ctrl+S - Save project
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                this.saveProject();
+                return;
+            }
+
+            // Ctrl+Z - Undo
+            if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
+                e.preventDefault();
+                this.undo();
+                return;
+            }
+
+            // Ctrl+Shift+Z or Ctrl+Y - Redo
+            if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) {
+                e.preventDefault();
+                this.redo();
+                return;
+            }
+
+            // Delete - Delete selected sprite
+            if (e.key === 'Delete') {
+                if (this.canvas.selectedSprite) {
+                    this.deleteSelectedSprite();
+                }
+                return;
+            }
+
+            // Arrow keys - Nudge sprite
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                if (this.canvas.selectedSprite) {
+                    e.preventDefault();
+                    const nudge = e.shiftKey ? 10 : 1;
+                    const sprite = this.canvas.selectedSprite;
+                    
+                    switch (e.key) {
+                        case 'ArrowUp': sprite.y -= nudge; break;
+                        case 'ArrowDown': sprite.y += nudge; break;
+                        case 'ArrowLeft': sprite.x -= nudge; break;
+                        case 'ArrowRight': sprite.x += nudge; break;
+                    }
+                    
+                    this.updateSpritePropertiesUI(sprite);
+                    this.saveCurrentSceneState();
+                }
+                return;
+            }
+
+            // Space - Toggle preview play
+            if (e.key === ' ' && this.previewMode) {
+                e.preventDefault();
+                this.togglePreviewPlay();
+                return;
+            }
+
+            // G - Toggle grid
+            if (e.key === 'g') {
+                this.toggleGrid();
+                return;
+            }
+
+            // Expression hotkeys 1-9 during preview
+            if (this.previewMode && e.key >= '1' && e.key <= '9') {
+                this.switchExpressionByHotkey(parseInt(e.key) - 1);
+                return;
+            }
+        });
+    }
+
+    /**
+     * Switch character expression by hotkey index
+     * @param {number} index - Variant index (0-8)
+     */
+    switchExpressionByHotkey(index) {
+        // Get all characters with sprites on canvas
+        const charactersOnCanvas = new Set();
+        for (const sprite of this.canvas.sprites) {
+            if (sprite.characterId) {
+                charactersOnCanvas.add(sprite.characterId);
+            }
+        }
+
+        // For each character, try to switch to the variant at index
+        for (const characterId of charactersOnCanvas) {
+            const character = this.spriteManager.getCharacter(characterId);
+            if (character && character.variants.length > index) {
+                const newSpriteId = character.variants[index];
+                const newSprite = this.spriteManager.getSprite(newSpriteId);
+                
+                if (newSprite) {
+                    // Find current sprite for this character on canvas
+                    const currentSprite = this.canvas.sprites.find(s => s.characterId === characterId);
+                    if (currentSprite && currentSprite.id !== newSpriteId) {
+                        // Swap to new variant
+                        this.canvas.switchSprite(currentSprite.id, newSprite);
+                        character.activeVariant = index;
+                    }
+                }
+            }
+        }
+    }
+
+    // ==================== UNDO/REDO SYSTEM ====================
+
+    /**
+     * Setup history callbacks
+     */
+    setupHistoryCallbacks() {
+        this.history.onHistoryChange = (status) => {
+            // Update undo/redo button states if they exist
+            const undoBtn = document.getElementById('btn-undo');
+            const redoBtn = document.getElementById('btn-redo');
+            if (undoBtn) undoBtn.disabled = !status.canUndo;
+            if (redoBtn) redoBtn.disabled = !status.canRedo;
+        };
+    }
+
+    /**
+     * Record current state to history
+     * @param {string} action - Description of the action
+     */
+    recordHistory(action) {
+        const state = {
+            sceneIndex: this.timeline.currentSceneIndex,
+            scene: this.getSceneStateSnapshot()
+        };
+        this.history.record(action, state);
+    }
+
+    /**
+     * Get a snapshot of current scene state
+     * @returns {Object} Scene state snapshot
+     */
+    getSceneStateSnapshot() {
+        const scene = this.timeline.getCurrentScene();
+        if (!scene) return null;
+        
+        return {
+            id: scene.id,
+            name: scene.name,
+            duration: scene.duration,
+            background: this.canvas.background ? this.canvas.background.src : null,
+            sprites: this.canvas.sprites.map(s => ({
+                id: s.id,
+                x: s.x,
+                y: s.y,
+                scale: s.scale,
+                opacity: s.opacity,
+                characterId: s.characterId,
+                variantIndex: s.variantIndex
+            })),
+            dialogues: scene.dialogues ? JSON.parse(JSON.stringify(scene.dialogues)) : []
+        };
+    }
+
+    /**
+     * Undo last action
+     */
+    undo() {
+        const currentState = {
+            sceneIndex: this.timeline.currentSceneIndex,
+            scene: this.getSceneStateSnapshot()
+        };
+        
+        const previousState = this.history.undo(currentState);
+        if (previousState) {
+            this.restoreState(previousState);
+        }
+    }
+
+    /**
+     * Redo last undone action
+     */
+    redo() {
+        const currentState = {
+            sceneIndex: this.timeline.currentSceneIndex,
+            scene: this.getSceneStateSnapshot()
+        };
+        
+        const nextState = this.history.redo(currentState);
+        if (nextState) {
+            this.restoreState(nextState);
+        }
+    }
+
+    /**
+     * Restore a state from history
+     * @param {Object} state - State to restore
+     */
+    restoreState(state) {
+        this.history.setRestoring(true);
+        
+        try {
+            // Restore scene properties
+            const scene = this.timeline.getCurrentScene();
+            if (scene && state.scene) {
+                scene.name = state.scene.name;
+                scene.duration = state.scene.duration;
+                scene.dialogues = state.scene.dialogues;
+                
+                // Restore sprite positions
+                for (const savedSprite of state.scene.sprites) {
+                    const canvasSprite = this.canvas.sprites.find(s => s.id === savedSprite.id);
+                    if (canvasSprite) {
+                        canvasSprite.x = savedSprite.x;
+                        canvasSprite.y = savedSprite.y;
+                        canvasSprite.scale = savedSprite.scale;
+                        canvasSprite.opacity = savedSprite.opacity;
+                    }
+                }
+                
+                // Update UI
+                this.updateScenePropertiesUI(scene);
+                if (this.canvas.selectedSprite) {
+                    this.updateSpritePropertiesUI(this.canvas.selectedSprite);
+                }
+                this.updateDialogueLinesList();
+            }
+        } finally {
+            this.history.setRestoring(false);
+        }
+    }
+
+    // ==================== GRID SYSTEM ====================
+
+    /**
+     * Toggle grid visibility
+     */
+    toggleGrid() {
+        this.gridEnabled = !this.gridEnabled;
+        this.canvas.setGridEnabled(this.gridEnabled, this.gridSize);
+        
+        const btn = document.getElementById('btn-toggle-grid');
+        if (btn) btn.classList.toggle('active', this.gridEnabled);
+    }
+
+    /**
+     * Toggle snap to grid
+     */
+    toggleSnapToGrid() {
+        this.snapToGrid = !this.snapToGrid;
+        this.canvas.setSnapToGrid(this.snapToGrid, this.gridSize);
+        
+        const btn = document.getElementById('btn-snap-grid');
+        if (btn) btn.classList.toggle('active', this.snapToGrid);
+    }
+
+    /**
+     * Set grid size
+     * @param {number} size - Grid cell size in pixels
+     */
+    setGridSize(size) {
+        this.gridSize = size;
+        this.canvas.setGridEnabled(this.gridEnabled, this.gridSize);
+        this.canvas.setSnapToGrid(this.snapToGrid, this.gridSize);
+    }
+
+    // ==================== LAYERS PANEL ====================
+
+    /**
+     * Update the layers panel UI
+     */
+    updateLayersPanel() {
+        const list = document.getElementById('layers-list');
+        if (!list) return;
+        
+        list.innerHTML = '';
+        
+        // Render sprites in reverse order (top layer first)
+        const sprites = [...this.canvas.sprites].reverse();
+        
+        sprites.forEach((sprite, visualIndex) => {
+            const actualIndex = this.canvas.sprites.length - 1 - visualIndex;
+            const item = document.createElement('div');
+            item.className = 'layer-item';
+            item.dataset.id = sprite.id;
+            item.draggable = true;
+            
+            if (this.canvas.selectedSprite && this.canvas.selectedSprite.id === sprite.id) {
+                item.classList.add('selected');
+            }
+            
+            item.innerHTML = `
+                <span class="layer-drag-handle">⋮⋮</span>
+                <span class="layer-name">${sprite.name || 'Sprite'}</span>
+                <span class="layer-index">${actualIndex + 1}</span>
+            `;
+            
+            item.addEventListener('click', () => {
+                this.canvas.selectedSprite = sprite;
+                this.updateSpritePropertiesUI(sprite);
+                this.updateLayersPanel();
+            });
+            
+            // Drag and drop for reordering
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', sprite.id);
+                item.classList.add('dragging');
+            });
+            
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+            });
+            
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                item.classList.add('drag-over');
+            });
+            
+            item.addEventListener('dragleave', () => {
+                item.classList.remove('drag-over');
+            });
+            
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                item.classList.remove('drag-over');
+                const draggedId = e.dataTransfer.getData('text/plain');
+                this.reorderSprite(draggedId, sprite.id);
+            });
+            
+            list.appendChild(item);
+        });
+    }
+
+    /**
+     * Reorder sprite layers
+     * @param {string} draggedId - ID of dragged sprite
+     * @param {string} targetId - ID of target sprite (drop position)
+     */
+    reorderSprite(draggedId, targetId) {
+        if (draggedId === targetId) return;
+        
+        const sprites = this.canvas.sprites;
+        const draggedIndex = sprites.findIndex(s => s.id === draggedId);
+        const targetIndex = sprites.findIndex(s => s.id === targetId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        // Remove dragged sprite and insert at target position
+        const [dragged] = sprites.splice(draggedIndex, 1);
+        sprites.splice(targetIndex, 0, dragged);
+        
+        this.updateLayersPanel();
+        this.saveCurrentSceneState();
+    }
+
+    // ==================== SCENE TEMPLATES ====================
+
+    /**
+     * Load templates from localStorage
+     * @returns {Array} Saved templates
+     */
+    loadTemplatesFromStorage() {
+        try {
+            const data = localStorage.getItem('spritegen-templates');
+            return data ? JSON.parse(data) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Save templates to localStorage
+     */
+    saveTemplatesToStorage() {
+        try {
+            localStorage.setItem('spritegen-templates', JSON.stringify(this.sceneTemplates));
+        } catch (e) {
+            console.warn('Failed to save templates:', e);
+        }
+    }
+
+    /**
+     * Save current scene as template
+     */
+    saveAsTemplate() {
+        const scene = this.timeline.getCurrentScene();
+        if (!scene) return;
+        
+        const name = prompt('Template name:', scene.name + ' Template');
+        if (!name) return;
+        
+        const template = {
+            id: Date.now().toString(),
+            name: name,
+            created: Date.now(),
+            data: {
+                duration: scene.duration,
+                sprites: this.canvas.sprites.map(s => ({
+                    x: s.x,
+                    y: s.y,
+                    scale: s.scale,
+                    opacity: s.opacity
+                })),
+                dialogues: scene.dialogues ? JSON.parse(JSON.stringify(scene.dialogues)) : []
+            }
+        };
+        
+        this.sceneTemplates.push(template);
+        this.saveTemplatesToStorage();
+        this.updateTemplatesList();
+        
+        alert(`Template "${name}" saved!`);
+    }
+
+    /**
+     * Apply a template to current scene
+     * @param {string} templateId - Template ID to apply
+     */
+    applyTemplate(templateId) {
+        const template = this.sceneTemplates.find(t => t.id === templateId);
+        if (!template) return;
+        
+        const scene = this.timeline.getCurrentScene();
+        if (!scene) return;
+        
+        // Apply template data
+        scene.duration = template.data.duration;
+        
+        // Apply sprite positions (if sprites exist)
+        const templateSprites = template.data.sprites;
+        this.canvas.sprites.forEach((sprite, index) => {
+            if (templateSprites[index]) {
+                sprite.x = templateSprites[index].x;
+                sprite.y = templateSprites[index].y;
+                sprite.scale = templateSprites[index].scale;
+                sprite.opacity = templateSprites[index].opacity;
+            }
+        });
+        
+        // Apply dialogues
+        if (template.data.dialogues) {
+            scene.dialogues = JSON.parse(JSON.stringify(template.data.dialogues));
+            this.dialogueSystem.setDialogueLines(scene.dialogues);
+        }
+        
+        this.updateScenePropertiesUI(scene);
+        this.updateDialogueLinesList();
+        this.saveCurrentSceneState();
+    }
+
+    /**
+     * Delete a template
+     * @param {string} templateId - Template ID to delete
+     */
+    deleteTemplate(templateId) {
+        this.sceneTemplates = this.sceneTemplates.filter(t => t.id !== templateId);
+        this.saveTemplatesToStorage();
+        this.updateTemplatesList();
+    }
+
+    /**
+     * Update templates list UI
+     */
+    updateTemplatesList() {
+        const list = document.getElementById('templates-list');
+        if (!list) return;
+        
+        list.innerHTML = '';
+        
+        if (this.sceneTemplates.length === 0) {
+            list.innerHTML = '<div class="no-templates">No templates saved</div>';
+            return;
+        }
+        
+        this.sceneTemplates.forEach(template => {
+            const item = document.createElement('div');
+            item.className = 'template-item';
+            item.innerHTML = `
+                <span class="template-name">${template.name}</span>
+                <div class="template-actions">
+                    <button class="btn-apply-template" title="Apply">✓</button>
+                    <button class="btn-delete-template" title="Delete">✕</button>
+                </div>
+            `;
+            
+            item.querySelector('.btn-apply-template').addEventListener('click', () => {
+                this.applyTemplate(template.id);
+            });
+            
+            item.querySelector('.btn-delete-template').addEventListener('click', () => {
+                if (confirm(`Delete template "${template.name}"?`)) {
+                    this.deleteTemplate(template.id);
+                }
+            });
+            
+            list.appendChild(item);
+        });
+    }
+
+    /**
+     * Delete selected sprite from canvas
+     */
+    deleteSelectedSprite() {
+        if (!this.canvas.selectedSprite) return;
+        
+        const sprite = this.canvas.selectedSprite;
+        this.canvas.removeSprite(sprite.id);
+        this.canvas.selectedSprite = null;
+        
+        document.getElementById('sprite-properties').style.display = 'none';
+        this.updateLayersPanel();
+        this.saveCurrentSceneState();
     }
 }
 
